@@ -16,7 +16,7 @@ for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, {
   if (opts.hasTouch) await p.tap('#f_bubo'); else await p.click('#f_bubo')
   await p.evaluate(() => { while (fw.S.ph === 'quiet' || fw.S.ph === 'meet') fw.dbg.step(1); fw.dbg.render() })
   if (opts.hasTouch) await p.tap('#c_feign'); else await p.click('#c_feign')
-  const r = await p.evaluate(() => { let o = ''; let g = 0; while (fw.S.ph !== 'quiet' && fw.S.ph !== 'over' && g++ < 2000) { fw.dbg.step(1); if (fw.S.ph === 'verdict') o = fw.S.outcome } fw.dbg.render(); return 'mask=' + fw.S.farts.length + ' outcome=' + o + ' score=' + fw.S.score + ' lives=' + fw.S.lives + ' title=' + document.title + ' x=' + fw.xPost().url })
+  const r = await p.evaluate(() => { let o = ''; let g = 0; while (fw.S.ph !== 'quiet' && fw.S.ph !== 'over' && g++ < 2000) { fw.dbg.step(1); if (fw.S.ph === 'verdict') o = fw.S.outcome } fw.dbg.render(); return 'round=' + fw.S.round + ' outcome=' + o + ' score=' + fw.S.score + ' lives=' + fw.S.lives + ' title=' + document.title + ' href=' + location.pathname })
   await p.waitForTimeout(400)
   out.push(`${name}: play=${r}`)
   await p.screenshot({ path: `shots/live-${name}.png` })
