@@ -1,10 +1,11 @@
 // verify.mjs の共通部品。コピーして __fw を置き換え、ゲーム固有のテストを足す。node verify.mjs
 import { chromium, webkit } from 'playwright'
+import { MUTE_LAUNCH, muteContext } from './mute.mjs'
 import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 const ROOT = import.meta.dirname
 mkdirSync(ROOT + '/shots', { recursive: true })
-const PORT = 5466
+const PORT = 5521
 const server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT) } })
 await new Promise(r => setTimeout(r, 400))
 const URL0 = `http://localhost:${PORT}/`
@@ -19,6 +20,7 @@ const expect = (c, msg) => { if (!c) throw new Error(msg) }
 // 日本語ロケール固定・エラー収集つきでページを開く
 async function open(browser, opts = {}) {
   const ctx = await browser.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 }, ...opts })
+  await muteContext(ctx)
   await ctx.addInitScript(() => { try { localStorage.clear() } catch (e) {} })
   const p = await ctx.newPage(); p.errs = []
   p.on('pageerror', e => p.errs.push('pageerror ' + e.message))
@@ -51,7 +53,7 @@ const variance = (p, sel) => p.evaluate(sel => {
 }, sel)
 const SIZES = [[360, 640, 'small'], [390, 844, 'phone'], [844, 390, 'land'], [667, 375, 'land-se'], [768, 1024, 'tab'], [1440, 900, 'pc']]
 
-const browser = await chromium.launch()
+const browser = await chromium.launch(MUTE_LAUNCH)
 const p = await open(browser)
 await t('起動時にエラーが出ない', async () => { expect(p.errs.length === 0, p.errs.join('|')) })
 await t('ブラウザの拡大が起きない（viewport・ピンチ・Ctrl+ホイール・Ctrl+プラス）', async () => {

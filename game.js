@@ -868,7 +868,7 @@ requestAnimationFrame(loop)
 
 // ---------- 検証用の窓口
 window.fw = {
-  S, D, PPL, camera, drawCard, xPost, toResult, choose, pressFart, doFart, evidence, startRun, nextRound, Snd, rankOf,
+  S, D, PPL, camera, renderer, drawCard, xPost, toResult, choose, pressFart, doFart, evidence, startRun, nextRound, Snd, rankOf,
   dbg: {
     pause() { S.dbgPause = true }, resume() { S.dbgPause = false; last = performance.now() },
     step(n = 1) { for (let k = 0; k < n; k++) step() }, render, seed(s) { S.fixedSeed = s },

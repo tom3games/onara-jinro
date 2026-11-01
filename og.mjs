@@ -1,13 +1,14 @@
 // SNS用サムネ og.png（1200x630）。node og.mjs
 // 自分がこいたのに、おじさんが濡れ衣で全員に指される瞬間を左に、右にタイトルと一言
 import { chromium } from 'playwright'
+import { MUTE_LAUNCH, muteContext } from './mute.mjs'
 import { spawn } from 'node:child_process'
 const ROOT = import.meta.dirname
-const server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT: '5467' } })
+const server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT: '5524' } })
 await new Promise(r => setTimeout(r, 400))
-const b = await chromium.launch()
-const p = await b.newPage({ viewport: { width: 1200, height: 630 }, locale: 'ja-JP' })
-await p.goto('http://localhost:5467/'); await p.waitForFunction(() => window.__fwReady)
+const b = await chromium.launch(MUTE_LAUNCH)
+const octx = await b.newContext({ viewport: { width: 1200, height: 630 }, locale: 'ja-JP' }); await muteContext(octx); const p = await octx.newPage()
+await p.goto('http://localhost:5524/'); await p.waitForFunction(() => window.__fwReady)
 await p.evaluate(() => document.fonts.ready)
 await p.evaluate(() => {
   const { S, dbg, PPL } = fw
