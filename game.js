@@ -936,7 +936,7 @@ function startRun() {
   S.seed = (S.fixedSeed ?? ((Date.now() & 0xffffff) || 1)); S.rand = mulberry(S.seed)
   S.mode = 'play'; S.round = 0; S.lives = 3; S.cleared = false; S.score = 0; S.pend = 0; S.smell = 0; S.result = null; S.photo = false; S.capPref = ''; S.wantCap = false
   S.fanLeft = D.fan.uses; S.carryNext = 0; S.prevCulprit = -1
-  S.stats = { farts: 0, framed: 0, caught: 0, best: 0, perfect: 0, deduce: 0, bluff: 0, unan: 0, frameVotes: 0, fans: 0 }; S.tut = !store.get('fw.played')
+  S.confN = 0; S.stats = { farts: 0, framed: 0, caught: 0, best: 0, perfect: 0, deduce: 0, bluff: 0, unan: 0, frameVotes: 0, fans: 0 }; S.tut = !store.get('fw.played')
   show('vPlay'); clearFx(); nextRound()
 }
 function nextRound() {
@@ -1205,7 +1205,7 @@ function choose(kind, target) {
   S.E = avgE(V)
   say(YOU, line, 2.6)
   PPL[YOU].point = kind === 'blame' || kind === 'rage' ? S.blameT : -1
-  if (kind === 'confess') resp = T.rConfess
+  if (kind === 'confess') { const n = (S.confN || 0) + 1; resp = n === 1 ? T.rConfess : n === 2 ? T.rConfess2 : T.rConfess3 }
   else { const r = R2[reason] || R2.feignOk; resp = r.replace('{T}', S.blameT >= 0 ? nameOf(S.blameT) : '') }
   // 返すのは、指された人でも言い出しっぺでもない人（決まった順）
   const responder = kind === 'rage' ? CPUS.find(c => c !== S.sniffer) : CPUS.find(c => c !== S.blameT && c !== (kind === 'blame' ? -1 : S.sniffer)) ?? 1
@@ -1264,8 +1264,11 @@ function verdict() {
   let bank = 0, head = '', cls = 'verdict', label = ''
   S.outcome = 'unsolved'; S.tier = -1
   if (S.choice === 'confess') {
-    bank = Math.round(pend * 0.5) + (iF ? 20 : 10); S.outcome = 'confess'; head = T.confessed; cls += ' laugh'
-    Snd.sfx('safe')
+    // 自白はウケるのは最初だけ（本人「自白強すぎん？」）。1回目は点の半分、2回目は4分の1、3回目からは0点でハート−1
+    const n = S.confN = (S.confN || 0) + 1, rate = [0.5, 0.25][n - 1] ?? 0
+    bank = Math.round(Math.min(pend, 100) * rate) + (n <= 2 && iF ? 20 : 0); S.outcome = 'confess'
+    if (n >= 3) { S.lives--; head = T.confessTooMany; cls += ' bad'; Snd.sfx('wahwah') }
+    else { head = n === 1 ? T.confessed : T.confessed2; cls += ' laugh'; Snd.sfx('safe') }
   } else {
     const yv = cnt[YOU]
     if (iF) {

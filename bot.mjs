@@ -50,6 +50,9 @@ const out = await p.evaluate(N => {
     },
     spam(st) { if (S.ph === 'quiet') fw.pressFart('suka'); else if (S.ph === 'choose') fw.choose('feign') },
     bubo(st) { if (S.ph === 'quiet') fw.pressFart('bubo'); else if (S.ph === 'choose') fw.choose('feign') },
+    // 自白頼み: ブボボッを連打して毎回自白する（自白が強すぎないかを見る）
+    boboConfess(st) { if (S.ph === 'quiet') fw.pressFart('bubo'); else if (S.ph === 'choose') fw.choose('confess') },
+    oneConfess(st) { if (S.ph === 'quiet') { if (!st.n && fw.pressFart('bubo')) st.n = 1 } else if (S.ph === 'choose') fw.choose('confess') },
     random(st) {
       if (S.ph === 'quiet' && Math.random() < 0.006) fw.pressFart(['suka', 'pu', 'bubo'][Math.floor(Math.random() * 3)])
       else if (S.ph === 'choose') { const k = ['feign', 'blame', 'rage', 'confess'][Math.floor(Math.random() * 4)]; k === 'blame' ? fw.choose('blame', [0, 1, 3, 4][Math.floor(Math.random() * 4)]) : fw.choose(k) }
