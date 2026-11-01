@@ -289,6 +289,14 @@ const Snd = {
     this.noise(t + 0.02, 2.5, 0.03, 200, 'lowpass', this.room)
   },
   bellWarn() { if (!this.ctx) return; const t = this.now(); this.mark('bellWarn'); this.noise(t, 0.8, 0.025, 180, 'lowpass'); this.tone(60, t, 0.8, 'sine', 0.05, null, 75) },
+  // 猫の「にゃ」: 声のフォルマントを い→あ→お に動かす（短い）
+  meow() {
+    this.mark('meow'); if (!this.ctx) return; const c = this.ctx, t = c.currentTime + 0.005, o = c.createOscillator(), bp = c.createBiquadFilter(), g = c.createGain(), f0 = 620 + Math.random() * 160
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * 1.35, t + 0.12); o.frequency.exponentialRampToValueAtTime(f0 * 0.8, t + 0.34)
+    bp.type = 'bandpass'; bp.Q.value = 4; bp.frequency.setValueAtTime(2600, t); bp.frequency.linearRampToValueAtTime(1500, t + 0.15); bp.frequency.linearRampToValueAtTime(900, t + 0.34)
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + 0.03); g.gain.setValueAtTime(0.32, t + 0.22); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.36)
+    o.connect(bp); bp.connect(g); g.connect(this.master); o.start(t); o.stop(t + 0.4)
+  },
   sneezeW() { if (!this.ctx) return; const t = this.now(); this.voice(200, t, 0.35, 0.12, 900, null, 260); this.voice(230, t + 0.55, 0.4, 0.16, 1000, null, 300) },
   sneeze() { if (!this.ctx) return; const t = this.now(); this.mark('sneeze'); this.noise(t, 0.4, 0.9, 1800, 'bandpass', null, 0.8); this.voice(300, t, 0.15, 0.4, 1100, null, 180); this.voice(180, t + 0.12, 0.35, 0.3, 700, null, 120) },
   phone(dur) { if (!this.ctx) return; const t = this.now(); this.mark('phone'); const mel = [84, 88, 91, 96, 91, 88]; for (let k = 0; k * 0.08 < dur; k++) this.tone(this.mtof(mel[k % mel.length]), t + k * 0.08, 0.075, 'square', 0.12) },
@@ -307,6 +315,7 @@ const Snd = {
       case 'wahwah': [[311, 0, 0.42], [294, 0.45, 0.42], [277, 0.9, 0.42], [262, 1.35, 1.1]].forEach(([f, d, l]) => { this.tone(f, t + d, l, 'sawtooth', 0.07, null, f * 0.96); this.tone(f / 2, t + d, l, 'triangle', 0.08) }); break
       case 'safe': this.tone(1046, t, 0.12, 'triangle', 0.13); this.tone(1568, t + 0.08, 0.2, 'triangle', 0.12); break
       case 'zawa': for (let k = 0; k < 8; k++) this.voice(150 + Math.random() * 120, t + k * 0.12, 0.2, 0.04, 600 + Math.random() * 600); break
+      case 'fan': for (let k = 0; k < 4; k++) this.noise(t + k * 0.12, 0.1, 0.12, 900 + k * 120, 'bandpass', null, 0.8); break
       case 'pop': for (let k = 0; k < 6; k++) this.noise(t + k * 0.05 + Math.random() * 0.03, 0.05, 0.12, 3000 + Math.random() * 2000, 'bandpass', null, 2); break
       case 'chime': for (let k = 0; k < 12; k++) this.tone(this.mtof(84 + [0, 4, 7, 12][k % 4]), t + k * 0.07, 0.5, 'sine', 0.05); break
     }
@@ -594,12 +603,49 @@ const kyusu = new THREE.Group(); kyusu.position.set(0.35, 0.455, -0.32); kot.add
 mesh(G.sph, 0x3a2a24, 0, 0.07, 0, 0.09, 0.075, 0.09, kyusu); mesh(G.cyl, 0x3a2a24, 0, 0.14, 0, 0.05, 0.02, 0.05, kyusu); mesh(G.sph, 0x3a2a24, 0, 0.155, 0, 0.02, 0.012, 0.02, kyusu)
 const spout = mesh(G.cyl, 0x3a2a24, 0.1, 0.09, 0, 0.014, 0.08, 0.014, kyusu); spout.rotation.z = -0.9
 const handle = mesh(G.cyl, 0x2a1c18, -0.03, 0.08, -0.12, 0.016, 0.12, 0.016, kyusu); handle.rotation.x = 1.3
-for (const o of kyusu.children) o.castShadow = true
+kyusu.children[0].castShadow = true
 // 缶ビール（銘柄なし）
 const beer = mesh(G.cyl, 0xd8d8e0, 0.72, 0.535, -0.2, 0.05, 0.16, 0.05, kot); beer.castShadow = true
 box(0.1, 0.06, 0.1, 0xd8141f, 0, 0.1, 0, beer).scale.set(1.02, 0.4, 1.02)
+
+// 猫（三毛）。こたつの手前を横切る。鳴く時は顔を上げて口を開ける
+const CAT = { g: new THREE.Group(), on: false, t: 0, dur: 5, meow: 0, legs: [], dir: 1 }
+{
+  const g = CAT.g; g.visible = false; scene.add(g)
+  const furTex = canvasTex(128, 64, (c, w, h) => { c.fillStyle = '#f6efe2'; c.fillRect(0, 0, w, h); c.fillStyle = '#e08a3a'; c.beginPath(); c.ellipse(30, 26, 26, 18, 0.3, 0, 7); c.fill(); c.fillStyle = '#3a2a24'; c.beginPath(); c.ellipse(86, 30, 22, 16, -0.2, 0, 7); c.fill(); c.fillStyle = '#e08a3a'; c.beginPath(); c.ellipse(110, 50, 14, 10, 0, 0, 7); c.fill() })
+  const furM = new THREE.MeshLambertMaterial({ map: furTex })
+  const body = mesh(new THREE.CapsuleGeometry(0.075, 0.2, 4, 10), furM, 0, 0.13, 0, 1, 1, 1, g); body.rotation.z = Math.PI / 2; body.castShadow = true
+  const head = new THREE.Group(); head.position.set(0.17, 0.21, 0); g.add(head); CAT.head = head
+  mesh(G.sph, furM, 0, 0, 0, 0.075, 0.068, 0.072, head).castShadow = true
+  for (const s of [-1, 1]) { const e = mesh(G.cone, s > 0 ? 0xe08a3a : 0x3a2a24, 0.0, 0.07, s * 0.04, 0.026, 0.05, 0.022, head); e.rotation.x = s * 0.25 }
+  for (const s of [-1, 1]) { mesh(G.sph, M(0x2a3a1a), 0.06, 0.012, s * 0.03, 0.012, 0.016, 0.01, head) }
+  mesh(G.sph, M(0xf08a9a), 0.074, -0.01, 0, 0.01, 0.008, 0.01, head)
+  CAT.mouth = mesh(G.sph, M(0x5a1424), 0.066, -0.035, 0, 0.004, 0.003, 0.016, head)
+  for (const [x, z] of [[0.12, 0.04], [0.12, -0.04], [-0.12, 0.04], [-0.12, -0.04]]) { const l = new THREE.Group(); l.position.set(x, 0.1, z); g.add(l); mesh(G.cyl, furM, 0, -0.05, 0, 0.022, 0.1, 0.022, l); CAT.legs.push(l) }
+  CAT.tail = new THREE.Group(); CAT.tail.position.set(-0.17, 0.16, 0); g.add(CAT.tail)
+  const tl = mesh(G.cyl, 0x3a2a24, 0, 0.1, 0, 0.016, 0.2, 0.016, CAT.tail); tl.position.y = 0.1
+}
+function catWalk(e) { CAT.on = true; CAT.t = 0; CAT.dur = e.walk; CAT.dir = S.round % 2 ? 1 : -1; CAT.g.visible = true }
+const catPos = () => CAT.g.position.clone()
+function updateCat(dt) {
+  if (!CAT.on) return
+  if (S.mode !== 'play' || S.ph !== 'quiet') { CAT.on = false; CAT.g.visible = false; return }
+  CAT.t += dt; CAT.meow = Math.max(0, CAT.meow - dt)
+  const k = CAT.t / CAT.dur; if (k >= 1) { CAT.on = false; CAT.g.visible = false; return }
+  const x = lerp(-2.4, 2.4, k) * CAT.dir
+  CAT.g.position.set(x, Math.abs(Math.sin(CAT.t * 9)) * 0.01, 0.78); CAT.g.rotation.y = CAT.dir > 0 ? 0 : Math.PI
+  CAT.legs.forEach((l, i) => { l.rotation.z = Math.sin(CAT.t * 9 + (i % 2 ? Math.PI : 0) + (i > 1 ? Math.PI / 2 : 0)) * 0.5 })
+  CAT.tail.rotation.z = 0.6 + Math.sin(CAT.t * 3) * 0.3; CAT.tail.rotation.x = Math.sin(CAT.t * 2.2) * 0.3
+  const m = CAT.meow > 0 ? Math.sin(CAT.meow / 0.5 * Math.PI) : 0
+  CAT.head.rotation.z = m * 0.5; CAT.mouth.scale.set(0.004 + m * 0.008, 0.003 + m * 0.02, 0.016)
+}
+// うちわ（あなたの左手）
+const uchiwaTex = canvasTex(64, 64, (c) => { c.fillStyle = '#f6efe0'; c.beginPath(); c.arc(32, 32, 30, 0, 7); c.fill(); c.fillStyle = '#d23a2a'; c.beginPath(); c.arc(32, 32, 14, 0, 7); c.fill(); c.strokeStyle = '#1b1620'; c.lineWidth = 3; c.beginPath(); c.arc(32, 32, 30, 0, 7); c.stroke() })
+const uchiwa = new THREE.Group(); uchiwa.visible = false; uchiwa.rotation.x = -1.3
+mesh(new THREE.CircleGeometry(0.14, 20), new THREE.MeshLambertMaterial({ map: uchiwaTex, side: THREE.DoubleSide }), 0, -0.68, 0.0, 1, 1, 1, uchiwa)
+mesh(G.cyl, 0x8a5a2e, 0, -0.55, 0, 0.008, 0.14, 0.008, uchiwa)
 function updateRoom(dt) {
-  drawTv(dt); updateClock(dt)
+  drawTv(dt); updateClock(dt); updateCat(dt)
   // 雪
   const p = snowGeo.attributes.position
   for (let i = 0; i < SNOW_N; i++) {
@@ -681,12 +727,13 @@ function makePerson(i) {
   let tag = null
   if (key === 'you') { tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: youTex, transparent: true, depthTest: false })); tag.position.set(0, 1.5, 0); tag.scale.setScalar(0.16); tag.renderOrder = 10; g.add(tag) }
   // 影を落とす（小さい部品は省く）
-  b.traverse(m => { if (m.isMesh && !m.material.transparent && Math.max(m.scale.x, m.scale.y) > 0.06) m.castShadow = true })
+  b.traverse(m => { if (m.isMesh && !m.material.transparent && Math.max(m.scale.x, m.scale.y) > 0.19) m.castShadow = true })
   return { i, key, g, b, arms, finger, pivot, head, pupils, brows, eyes, happy, nose, mouth, cheeks, sweats, eye, tag, phone, skinM, skin0: new THREE.Color(o.skin),
     yaw: 0, pitch: 0, yawV: 0, pitchV: 0, tYaw: 0, tPitch: 0.1, lift: 0, talk: 0, red: 0, smile: 0, point: -1, pointK: 0, sniffT: 0, shock: 0, sweatK: 0, eyeK: 0, glare: 0, relief: 0, reseat: 0, reachArm: 0, hop: 0 }
 }
 const happyGeo = new THREE.TorusGeometry(0.032, 0.009, 4, 10, Math.PI)
 const PPL = D.seats.map((k, i) => makePerson(i))
+PPL[YOU].arms[0].add(uchiwa)
 const _hp = new THREE.Vector3(), _q = new THREE.Vector3(), _w = new THREE.Vector3()
 const headPos = (i, out = new THREE.Vector3()) => PPL[i].head.getWorldPosition(out)
 const buttPos = i => PPL[i].g.localToWorld(new THREE.Vector3(0, 0.3, -0.22))
@@ -720,16 +767,18 @@ const moyaP = [], drifts = [], TINT = [0xffffff, 0xe6f7c8, 0xd4ecaa, 0xf2ffd8]
 function moyaAdd(o) { moyaP.push({ t: 0, rot: VR() * 6.28, vr: (VR() - 0.5) * 1.6, ph: VR() * 6.28, wob: 2 + VR() * 2.5, tint: TINT[Math.floor(VR() * TINT.length)], g: 0.3, ...o }); while (moyaP.length > MOYA_N) moyaP.shift() }
 // strength: 0..1（後半の CPU は煙が薄い）
 function fartPuffs(i, id, rec, strength = 1) {
-  const n0 = id === 'suka' ? 8 : id === 'pu' ? 4 : 10
-  for (let k = 0; k < n0 * 7; k++) R() // 以前の煙と同じ回数だけ遊びの乱数を進める（見た目の変更で遊びの乱数がずれないように）
   const p = buttPos(i), side = PPL[i].g.localToWorld(new THREE.Vector3(1, 0, 0)).sub(PPL[i].g.position).normalize()
   const big = id === 'bubo', k = Math.max(1, Math.round((id === 'suka' ? 4 : big ? 7 : 3) * strength))
   for (let j = 0; j < k; j++) {
     const sd = j % 2 ? 1 : -1
-    moyaAdd({ p: p.clone().addScaledVector(side, sd * 0.14).add(_q.set(0, (VR() - 0.2) * 0.12, 0)), v: side.clone().multiplyScalar(sd * (0.3 + VR() * (big ? 0.9 : 0.4))).add(_q.set((VR() - 0.5) * 0.2, 0.2 + VR() * (big ? 0.5 : 0.25), (VR() - 0.5) * 0.2)), s: (big ? 0.12 : 0.08) * (0.6 + 0.4 * strength) + VR() * 0.04, g: big ? 1.2 : 0.8, life: (id === 'suka' ? 2.2 : 1.3) + VR() * 0.8 })
+    moyaAdd({ p: PPL[i].g.localToWorld(new THREE.Vector3(sd * (0.16 + VR() * 0.06), 0.8 + VR() * 0.1, -0.22)), v: side.clone().multiplyScalar(sd * (0.15 + VR() * (big ? 0.5 : 0.25))).add(_q.set(0, 0.45 + VR() * (big ? 0.4 : 0.2), 0)), s: (big ? 0.14 : 0.11) * (0.6 + 0.4 * strength) + VR() * 0.04, g: big ? 1.2 : 0.8, life: (id === 'suka' ? 2.2 : 1.3) + VR() * 0.8 })
   }
   // 遅れて匂いが両隣へ流れる（疑いが両隣にかかる仕組みを目で見せる）
   if (rec) drifts.push({ from: i, at: S.time + Math.max(0.3, rec.smellAt - S.t), n: 0, strength, id })
+}
+function scatterMoya() {
+  for (const p of moyaP) { if (p.path) { p.path = null; p.v = new THREE.Vector3() } const d = p.p.clone().sub(_q.set(0, 0.6, -0.4)).setY(0).normalize(); p.v.copy(d.multiplyScalar(1.5 + VR())).setY(0.3); p.life = Math.min(p.life, p.t + 0.7); p.g = 1.2 }
+  for (const d of drifts) d.n = 99
 }
 function updateMoya(dt) {
   const play = S.mode === 'play'
@@ -804,10 +853,11 @@ function applyLang() {
   const T = TT(); document.documentElement.lang = S.lang
   document.querySelectorAll('[data-t]').forEach(el => { const v = T[el.dataset.t]; if (typeof v === 'string') el.innerHTML = v })
   $('#langTxt').textContent = S.lang === 'ja' ? 'EN' : 'JA'
+  $('#fanTxt').textContent = T.f_fan
   for (const id of FIDS) { const b = $('#f_' + id); b.querySelector('.fn').textContent = T['f_' + id]; b.querySelector('.fp').textContent = FT[id].pts + T.ptsU }
   for (const k of ['feign', 'blame', 'rage', 'confess']) { const b = $('#c_' + k); b.querySelector('.cn').textContent = T.ch[k]; b.querySelector('.cs').textContent = T.chSub[k] }
   document.querySelectorAll('#pickRow [data-i]').forEach(b => { b.textContent = nameOf(+b.dataset.i) })
-  $('#howSteps').innerHTML = ['how1', 'how2', 'how3'].map((k, i) => `<div class="step"><span class="num">${i + 1}</span><span>${T[k]}</span></div>`).join('')
+  $('#howSteps').innerHTML = ['how1', 'how2', 'howFan', 'how3'].map((k, i) => `<div class="step"><span class="num">${i + 1}</span><span>${T[k]}</span></div>`).join('')
   document.title = S.lang === 'ja' ? 'おなら人狼 | FART WOLF' : 'FART WOLF | おなら人狼'
   if (S.result) fillResult()
   updateHud(true)
@@ -840,10 +890,14 @@ function updateFx(dt) {
   }
 }
 const say = (i, text, life = 2.4) => { Snd.sfx('talk'); PPL[i].talk = Math.min(life, 1.4); return fx(text, i === YOU ? 'sb mine' : 'sb', { follow: i, life }) }
-const ono = (text, p, cls = 'ono', size = 30, life = 1.3) => fx(text, cls, { at: p.clone(), size, life, rot: (R() - 0.5) * 16 })
+const ono = (text, p, cls = 'ono', size = 30, life = 1.3) => fx(text, cls, { at: p.clone(), size, life, rot: (VR() - 0.5) * 16 })
 const banner = (text, cls = 'banner', life = 1.8) => fx(text, cls, { x: innerWidth / 2, y: innerHeight * 0.3, life })
 
-// ---------- ラウンドの組み立て
+// ---------- ラウンドの組み立て（状況だけ乱数で作る。判定には乱数を使わない）
+const PER = c => D.pers[D.seats[c]]
+const farted = j => S.farts.some(f => f.who === j)
+const lifted = j => S.lifts.some(l => l.who === j)
+function setGz(c, x) { if (S.gz[c] !== x) { S.gz[c] = x; S.gzSince[c] = S.t } }
 function planRound() {
   const L = D.quiet, evs = []
   const jit = S.round > 3 ? 0.9 : 0
@@ -852,6 +906,12 @@ function planRound() {
   for (const [type, src, w, d, p] of [['sneeze', 0, 1.3, 0.75, 1], ['phone', 4, 0, 1.6, 0.55]]) {
     if (R() > p) continue
     for (let k = 0; k < 12; k++) { const t = 3 + R() * (L - 6); if (free(t - w, w + d)) { evs.push({ type, src, tw: t - w, tp: t, dur: d }); break } }
+  }
+  // 猫: 予告なしで通り、歩いている途中のどこかで一瞬だけ鳴く
+  const nCat = R() < 0.3 ? 0 : R() < 0.75 ? 1 : 2
+  for (let k = 0; k < nCat; k++) for (let tr = 0; tr < 12; tr++) {
+    const st = 1 + R() * (L - 2 - D.cat.walk), meow = st + D.cat.walk * (0.2 + R() * 0.6)
+    if (free(meow - 0.4, D.cat.win + 0.8) && evs.every(e => e.type !== 'cat' || Math.abs(e.tw - st) > D.cat.walk + 0.5)) { evs.push({ type: 'cat', src: -1, tw: st, tp: meow, dur: D.cat.win, walk: D.cat.walk }); break }
   }
   evs.sort((a, b) => a.tw - b.tw)
   S.evs = evs
@@ -862,21 +922,27 @@ function planRound() {
     const who = R() < 0.45 ? 3 : pick(CPUS), id = R() < 0.55 ? 'suka' : R() < 0.75 ? 'pu' : 'bubo'
     let t = 2 + R() * (L - 4)
     const ev = evs.find(e => e.type === 'bell' || e.type === 'sneeze')
-    if (id !== 'suka' && ev && R() < 0.6) t = (pick(evs.filter(e => e.type !== 'phone')) || ev).tp + 0.2
+    if (id !== 'suka' && ev && R() < 0.6) t = (pick(evs.filter(e => e.type === 'bell' || e.type === 'sneeze')) || ev).tp + 0.2
     S.cpuPlan.push({ who, id, t, done: false })
   }
+  // ただの座り直し（みかん・湯のみに手を伸ばす）。後半ほど多い
+  S.resPlan = []
+  const nRes = 1 + (R() < 0.5 ? 1 : 0) + (S.round > 4 && R() < 0.6 ? 1 : 0)
+  for (let k = 0; k < nRes; k++) S.resPlan.push({ who: pick(CPUS), t: 1.5 + R() * (L - 3), done: false })
 }
 function startRun() {
   Snd.init(); Snd.sfx('tap')
   S.seed = (S.fixedSeed ?? ((Date.now() & 0xffffff) || 1)); S.rand = mulberry(S.seed)
   S.mode = 'play'; S.round = 0; S.lives = 3; S.cleared = false; S.score = 0; S.pend = 0; S.smell = 0; S.result = null; S.photo = false; S.capPref = ''; S.wantCap = false
-  S.stats = { farts: 0, framed: 0, caught: 0, best: 0 }; S.tut = !store.get('fw.played')
+  S.fanLeft = D.fan.uses; S.carryNext = 0; S.prevCulprit = -1
+  S.stats = { farts: 0, framed: 0, caught: 0, best: 0, perfect: 0, deduce: 0, bluff: 0, unan: 0, frameVotes: 0, fans: 0 }; S.tut = !store.get('fw.played')
   show('vPlay'); clearFx(); nextRound()
 }
 function nextRound() {
-  S.round++; S.ph = 'quiet'; S.t = 0; S.pend = 0; S.farts = []; S.cd = 0; S.zawa = false; S.smell *= 0.45; S.E = null; S.votes = []; S.culprit = -1; S.outcome = ''; S.meetQ = []
+  S.round++; S.ph = 'quiet'; S.t = 0; S.pend = 0; S.farts = []; S.lifts = []; S.fans = []; S.cd = 0; S.fanCd = 0; S.zawa = false; S.smell *= 0.45; S.E = null; S.V = null; S.votes = []; S.culprit = -1; S.unan = false; S.cnt = null; S.outcome = ''; S.tier = -1; S.meetQ = []; S.clues = []; S.said = []
+  S.carry = new Array(NSEAT).fill(0); S.carry[YOU] = S.carryNext || 0; S.carryNext = 0
   for (const n of PPL) { n.point = -1; n.smile = 0; n.shock = 0 }
-  S.gz = PPL.map(() => -1); S.gzT = PPL.map(() => 0.5 + R() * 2)
+  S.gz = PPL.map(() => -1); S.gzT = PPL.map(() => 0.5 + R() * 2); S.gzSince = PPL.map(() => 0)
   planRound()
   setPanel('farts'); Snd.setTrack('night')
   banner(TT().roundOf.replace('{N}', S.round).replace('{M}', D.rounds) + '　' + TT().quietT, 'banner', 2)
@@ -886,16 +952,20 @@ function nextRound() {
 // ---------- しずかな時間
 const activePeak = t => S.evs.find(e => t >= e.tp && t <= e.tp + e.dur)
 function watchers(i) { return CPUS.filter(c => c !== i && S.gz[c] === i) }
+// 後半ほど CPU の煙は薄い（見分けが難しくなる）
+const cpuPuff = () => clamp(1 - 0.09 * (S.round - 1), 0.35, 1)
 function doFart(i, id) {
   const f = FT[id], t = S.t, ev = activePeak(t)
   const mask = ev && D.mask[ev.type] ? (D.mask[ev.type][id] || 0) : 0
   const audible = f.loud * (1 - mask)
-  const wit = watchers(i).filter(() => R() < 0.55 + 0.45 * sharp())
-  const rec = { who: i, id, t, mask, audible, ev: ev ? ev.type : null, wit, smellAt: t + 2 + R() }
-  S.farts.push(rec)
+  // 見られていた時間が十分なら「目撃」、短ければ「ちらっと」（目のいい人ほど早く気づく）
+  const wit = [], gl = []
+  for (const c of watchers(i)) (S.t - S.gzSince[c] >= 0.3 / PER(c).eye ? wit : gl).push(c)
+  const rec = { who: i, id, t, mask, audible, ev: ev ? ev.type : null, wit, gl, smellAt: t + 2.5 }
+  S.farts.push(rec); S.lifts.push({ who: i, t, real: true, seen: watchers(i) })
   const n = PPL[i]; n.lift = 1
-  if (i !== YOU) n.relief = 1.4
-  fartPuffs(i, id, rec)
+  if (i !== YOU) n.relief = 1.4 * cpuPuff()
+  fartPuffs(i, id, rec, i === YOU ? 1 : cpuPuff())
   const how = audible > 0.2 ? 'busted' : mask >= 0.99 ? 'masked' : mask > 0 ? 'half' : 'plain'
   const bp = buttPos(i)
   if (i === YOU) {
@@ -909,30 +979,63 @@ function doFart(i, id) {
   } else {
     Snd.fart(id, how, 0.7)
   }
-  // 聞こえたら全員が振り向く
+  // 聞こえたら振り向く（耳の遠いじいちゃんは大きい音だけ）
   if (audible > 0.2) {
-    for (const c of CPUS) if (c !== i && R() < 0.4 + audible) { S.gz[c] = i; S.gzT[c] = 2 + R(); PPL[c].shock = 1 }
+    for (const c of CPUS) if (c !== i && audible * PER(c).hear > 0.3) { setGz(c, i); S.gzT[c] = 2.5; PPL[c].shock = 1 }
     Snd.sfx('gasp')
   }
 }
+// ただの座り直し（煙も表情も変わらない。見ていた家族は少し怪しむ）
+function doReseat(i) { reseat(i); S.lifts.push({ who: i, t: S.t, real: false, seen: CPUS.filter(c => c !== i && S.gz[c] === i) }) }
+// うちわ: 匂いを散らす。出した直後・匂わない時・見られている時は怪しまれる
+function pressFan() {
+  Snd.init()
+  if (S.mode !== 'play' || S.ph !== 'quiet' || !(S.fanLeft > 0) || S.fanCd > 0) return false
+  S.fanLeft--; S.fanCd = D.fan.cd; S.stats.fans++
+  const recent = S.farts.some(f => f.who === YOU && S.t - f.t <= D.fan.recent)
+  const cold = S.smell < D.fan.cold
+  const seenBy = watchers(YOU)
+  const kind = recent ? 'fanFart' : cold ? 'fanCold' : seenBy.length ? 'fanSeen' : 'ok'
+  S.fans.push({ t: S.t, kind, seenBy })
+  S.smell *= D.fan.scatter; for (const f of S.farts) f.fanned = true
+  if (S.smell < 1.7) S.zawa = false
+  PPL[YOU].fanT = 1.2; scatterMoya(); Snd.sfx('fan')
+  if (kind !== 'ok') {
+    const sp = seenBy[0] ?? 1
+    say(sp, TT()[kind], 1.8); PPL[sp].shock = 1; setGz(sp, YOU); S.gzT[sp] = 1.5
+  }
+  return true
+}
 function updateQuiet(dt) {
-  S.t += dt; S.cd = Math.max(0, S.cd - dt)
+  S.t += dt; S.cd = Math.max(0, S.cd - dt); S.fanCd = Math.max(0, S.fanCd - dt)
   const T = TT()
   for (const e of S.evs) {
-    if (!e.w && S.t >= e.tw && e.tp > e.tw) { e.w = 1; if (e.type === 'sneeze') { say(e.src, T.sneezeW, 1.3); Snd.sneezeW(); PPL[e.src].tPitch = -0.3 } if (e.type === 'bell') { ono(S.lang === 'ja' ? 'ゴォ…' : 'hmmm...', new THREE.Vector3(1.5, 1.45, -2), 'ono dim', 20, 0.9); Snd.bellWarn() } }
+    if (!e.w && S.t >= e.tw && e.tp > e.tw) {
+      e.w = 1
+      if (e.type === 'sneeze') { say(e.src, T.sneezeW, 1.3); Snd.sneezeW(); PPL[e.src].tPitch = -0.3 }
+      if (e.type === 'bell') { ono(S.lang === 'ja' ? 'ゴォ…' : 'hmmm...', new THREE.Vector3(1.5, 1.45, -2), 'ono dim', 20, 0.9); Snd.bellWarn() }
+      if (e.type === 'cat') catWalk(e)
+    }
     if (!e.p && S.t >= e.tp) {
       e.p = 1
       if (e.type === 'bell') { Snd.bell(); ono(T.bell, new THREE.Vector3(1.5, 1.6, -2), 'ono bell', 46, 1.6); shake = Math.max(shake, 0.12); templeGlow.material.opacity = 1 }
       if (e.type === 'sneeze') { Snd.sneeze(); ono(T.sneeze, headPos(0).add(new THREE.Vector3(0.1, 0.25, 0)), 'ono yel', 34, 1); PPL[0].lift = 0.6 }
       if (e.type === 'phone') { Snd.phone(e.dur); ono(T.phone, headPos(4).add(new THREE.Vector3(0, 0.2, 0)), 'ono', 26, e.dur) }
+      if (e.type === 'cat') {
+        Snd.meow(); CAT.meow = 0.5; ono(T.cat, catPos().add(_q.set(0, 0.3, 0)), 'ono yel', 26, 0.9)
+        for (const c of CPUS) { setGz(c, -2); S.gzT[c] = 1.1 }
+        e.love = 1
+      }
     }
+    if (e.type === 'cat' && e.love === 1 && S.t >= e.tp + 0.45) { e.love = 2; say(CPUS[S.round % 4], T.catLove[S.round % T.catLove.length], 1.3) }
   }
   for (const p of S.cpuPlan) if (!p.done && S.t >= p.t) { p.done = true; doFart(p.who, p.id) }
+  for (const p of S.resPlan) if (!p.done && S.t >= p.t) { p.done = true; doReseat(p.who) }
   // 匂いは遅れて広がる
   for (const f of S.farts) if (!f.sm && S.t >= f.smellAt) {
-    f.sm = 1; S.smell += FT[f.id].smell
+    f.sm = 1; S.smell += FT[f.id].smell * (f.fanned ? D.fan.scatter : 1)
     const near = [f.who - 1, f.who + 1].filter(j => j >= 0 && j < NSEAT && j !== YOU)
-    for (const j of near) { PPL[j].sniffT = 1.2; if (R() < 0.5) Snd.sfx('sniff') }
+    for (const j of near) { PPL[j].sniffT = 1.2; Snd.sfx('sniff') }
   }
   if (!S.zawa && S.smell > 1.7) { S.zawa = true; Snd.sfx('zawa'); banner(T.smellUp, 'banner zawa', 1.6); for (const c of CPUS) S.gzT[c] = Math.min(S.gzT[c], 0.3 + R() * 0.5) }
   // 視線（だんだん鋭くなる。匂いがたまると周りを見回す）
@@ -941,9 +1044,9 @@ function updateQuiet(dt) {
     if (S.gzT[c] > 0) continue
     const pYou = 0.14 + 0.065 * (S.round - 1) + (S.zawa ? 0.25 : 0) + (S.smell > 0.8 ? 0.08 : 0)
     const r = R()
-    if (r < pYou) S.gz[c] = YOU
-    else if (r < pYou + 0.22) S.gz[c] = pick([0, 1, 3, 4].filter(j => j !== c))
-    else S.gz[c] = -1
+    if (r < pYou) setGz(c, YOU)
+    else if (r < pYou + 0.22) setGz(c, pick([0, 1, 3, 4].filter(j => j !== c)))
+    else setGz(c, -1)
     S.gzT[c] = (S.gz[c] === YOU ? 1.2 + R() * 1.4 : 1.5 + R() * 2.5) * (S.zawa ? 0.7 : 1)
   }
   // 1回戦だけ、案内を出す
@@ -954,7 +1057,7 @@ function updateQuiet(dt) {
     else if (S.t < 3) showHint(T.hintFirst, 'first')
     else hideHint()
   }
-  // 匂いがたまるほど音楽が崩れる（見た目・音だけ。遊びには効かない）
+  // 匂いがたまるほど音楽が崩れる（見た目・音だけ）
   const sourT = S.zawa ? 1 : clamp((S.smell - 0.7) / 1.0, 0, 0.8)
   Snd.sour = clamp(Snd.sour + (sourT - Snd.sour) * Math.min(1, dt * (sourT > Snd.sour ? 0.6 : 1.5)), 0, 1); if (Snd.sour < 0.01 && !sourT) Snd.sour = 0
   if (S.t >= D.quiet) { hideHint(); startMeeting() }
@@ -962,45 +1065,78 @@ function updateQuiet(dt) {
 function showHint(txt, k) { const h = $('#hint'); if (h.dataset.k !== k || h.hidden) { h.textContent = txt; h.dataset.k = k; h.hidden = false } }
 function hideHint() { $('#hint').hidden = true }
 
-// ---------- 会議
+// ---------- 会議: CPU ひとりずつの見方（決定的）
+// V[c][j] = c が j を疑う強さ。clues = 会議で言える根拠（種類つき）
 function evidence() {
-  const E = new Array(NSEAT).fill(0), sh = sharp(), k = 0.6 + 0.8 * sh + 0.12 * Math.max(0, S.round - 7), sm = new Array(NSEAT).fill(0)
-  const lines = []
+  const sh = sharp(), V = {}, clues = [], smE = new Array(NSEAT).fill(0)
+  for (const c of CPUS) V[c] = new Array(NSEAT).fill(0)
+  const src = new Array(NSEAT).fill(0)
   for (const f of S.farts) {
-    sm[f.who] += FT[f.id].smell
-    if (f.audible > 0.15) {
-      E[f.who] += 2.5 * f.audible
-      for (const j of [f.who - 1, f.who + 1]) if (j >= 0 && j < NSEAT) E[j] += 0.45 * f.audible * (1 - sh * 0.5)
-      const sp = pick(CPUS.filter(c => c !== f.who))
-      lines.push({ w: 2.5 * f.audible + 0.2, sp, text: f.mask > 0 ? (f.ev === 'bell' ? TT().heardMix : TT().heardMixS) : TT().heard.replace('{X}', nameOf(f.who, true)), about: f.who })
+    src[f.who] += FT[f.id].smell * (f.fanned ? D.fan.scatter + 0.05 : 1)
+    if (f.audible > 0.15) for (const c of CPUS) if (c !== f.who) {
+      const w = 2.5 * f.audible * PER(c).hear; V[c][f.who] += w
+      clues.push({ type: f.mask > 0 ? 'soundMix' : 'sound', c, about: f.who, w: w + 0.2, ev: f.ev })
     }
-    for (const c of f.wit) { E[f.who] += 1.5; lines.push({ w: 1.6, sp: c, text: TT().witness.replace('{X}', nameOf(f.who, true)), about: f.who }) }
+    for (const c of f.wit) { V[c][f.who] += 2.0; clues.push({ type: 'saw', c, about: f.who, w: 1.9 }) }
+    for (const c of f.gl) { V[c][f.who] += 0.7; clues.push({ type: 'glance', c, about: f.who, w: 0.7 }) }
   }
+  // 匂い: 隣の人の鼻は向きが分かる。離れた人は出どころと両隣の区別がつきにくい
   for (let i = 0; i < NSEAT; i++) {
-    if (!sm[i]) continue
-    const v = Math.pow(sm[i], 1.3)
-    E[i] += 0.9 * v
-    for (const j of [i - 1, i + 1]) if (j >= 0 && j < NSEAT) E[j] += 0.6 * (1 - 0.45 * sh) * v
+    if (!src[i]) continue
+    const v = Math.pow(src[i], 1.3)
+    for (const c of CPUS) {
+      if (c === i) continue
+      const nose = PER(c).nose, near = Math.abs(c - i) === 1
+      const a = (near ? 1.1 : 0.6) * nose * v; V[c][i] += a; smE[i] += a / 4
+      for (const j of [i - 1, i + 1]) if (j >= 0 && j < NSEAT && j !== c) { const b = (near ? 0.25 : 0.6 - 0.2 * sh) * nose * v; V[c][j] += b; smE[j] += b / 4 }
+      if (near) clues.push({ type: 'smell', c, about: i, w: 0.9 * nose * v })
+      else clues.push({ type: 'smell', c, about: i, w: 0.5 * nose * v })
+    }
   }
-  for (let i = 0; i < NSEAT; i++) E[i] = E[i] * k + R() * 0.35
-  // 匂いの方向の発言（一番強く匂う人を、その隣が言う。外れることもある）
-  const smellTop = [...E.keys()].filter(i => sm[i] || sm[i - 1] || sm[i + 1]).sort((a, b) => E[b] - E[a])[0]
-  if (smellTop !== undefined && sm.some(Boolean)) {
-    const sp = [smellTop - 1, smellTop + 1].filter(j => j >= 0 && j < NSEAT && j !== YOU && j !== smellTop)
-    if (sp.length) lines.push({ w: 1, sp: pick(sp), text: TT().smell.replace('{X}', nameOf(smellTop, true)), about: smellTop })
+  // 座り直し・腰浮き（CPU 同士）: 見ていた人だけ
+  for (const l of S.lifts) if (l.who !== YOU) for (const c of l.seen) { V[c][l.who] += 0.6; clues.push({ type: 'lift', c, about: l.who, w: 0.6 }) }
+  // うちわ
+  for (const fn of S.fans) {
+    if (fn.kind === 'fanFart') for (const c of CPUS) { V[c][YOU] += 2.2; clues.push({ type: 'fanFart', c, about: YOU, w: 2.0 }) }
+    if (fn.kind === 'fanCold') for (const c of CPUS) { V[c][YOU] += 0.8; clues.push({ type: 'fanCold', c, about: YOU, w: 0.75 }) }
+    for (const c of fn.seenBy) { V[c][YOU] += 1.2; if (fn.kind !== 'fanFart') clues.push({ type: 'fanSeen', c, about: YOU, w: 1.1 }) }
   }
-  lines.sort((a, b) => b.w - a.w)
-  return { E, lines: lines.slice(0, 2) }
+  // 性格
+  for (const c of CPUS) {
+    const p = PER(c)
+    for (let j = 0; j < NSEAT; j++) if (j !== c) V[c][j] += S.carry[j]
+    if (p.grudge && S.prevCulprit >= 0 && S.prevCulprit !== c && S.farts.length) { V[c][S.prevCulprit] += p.grudge * 0.6; clues.push({ type: 'grudge', c, about: S.prevCulprit, w: 0.5 }) }
+    if (p.protect) V[c][YOU] *= 1 - p.protect
+    // 自分がこいた人は黙る。おじさんは自分がこくと人を指す
+    if (farted(c) && p.deflect) { let b = c === 2 ? 1 : c - 1, bv = -1; for (let j = 0; j < NSEAT; j++) if (j !== c && V[c][j] > bv) { bv = V[c][j]; b = j } V[c][b] += p.deflect * 1.2 }
+  }
+  for (const c of CPUS) V[c][c] = 0
+  clues.sort((a, b) => b.w - a.w || a.c - b.c || a.about - b.about)
+  return { V, clues, smE }
+}
+const avgE = V => { const E = new Array(NSEAT).fill(0); for (const c of CPUS) for (let j = 0; j < NSEAT; j++) E[j] += V[c][j] / 4; return E }
+function lineOf(cl) {
+  const L = TT().L, arr = L[cl.type] || L.smell
+  let k = (S.round + cl.about) % arr.length
+  if (cl.type === 'soundMix') k = { bell: 0, sneeze: 1, cat: 2, phone: 1 }[cl.ev] ?? 0
+  return arr[k].replace('{X}', nameOf(cl.about, true))
 }
 function startMeeting() {
   Snd.sour = 0
   if (!S.farts.length) { S.ph = 'peace'; S.t = 0; setPanel(''); banner(TT().peace, 'banner', 1.8); return }
   S.ph = 'meet'; S.t = 0; setPanel(''); Snd.setTrack('meet')
-  const ev = evidence(); S.E = ev.E
-  // 言い出しっぺ: 鼻のいい人ほど先に気づく（自分がこいた CPU は言い出さないことが多い）
-  const cand = CPUS.map(c => ({ c, v: D.ppl[D.seats[c]].nose * (0.6 + R()) * (S.farts.some(f => f.who === c) ? 0.4 : 1) })).sort((a, b) => b.v - a.v)
+  const ev = evidence(); S.V = ev.V; S.smE = ev.smE
+  // 会議の発言: 根拠の強い順に2つ（同じ相手・同じ種類は重ねない）
+  const said = []
+  for (const cl of ev.clues) { if (said.length >= 2) break; if (said.some(s => s.about === cl.about && (s.type === cl.type || s.c === cl.c))) continue; said.push(cl) }
+  S.said = said
+  // 流されやすい人は、聞いた発言を信じる
+  for (const s of said) for (const c of CPUS) if (c !== s.c && c !== s.about) S.V[c][s.about] += PER(c).follow * 0.5 * s.w
+  S.E = avgE(S.V)
+  // 言い出しっぺ: 鼻のいい人。自分がこいた人は黙るが、おじさんは自分から言い出す（言い出しっぺの法則）
+  const cand = CPUS.map(c => ({ c, v: D.ppl[D.seats[c]].nose * (farted(c) ? (PER(c).deflect ? 2 : 0.5) : 1) })).sort((a, b) => b.v - a.v || a.c - b.c)
   S.sniffer = cand[0].c
-  S.meetQ = [{ at: 0.5, i: S.sniffer, text: pick(TT().sniff) }, ...ev.lines.map((l, k) => ({ at: 2.4 + k * 2.1, i: l.sp, text: l.text, about: l.about }))]
+  S.meetQ = [{ at: 0.5, i: S.sniffer, text: TT().sniff[S.round % TT().sniff.length] }, ...said.map((l, k) => ({ at: 2.4 + k * 2.3, i: l.c, text: lineOf(l), about: l.about, type: l.type }))]
   banner(TT().meetT, 'banner meet', 1.6)
 }
 function updateMeet(dt) {
@@ -1010,94 +1146,163 @@ function updateMeet(dt) {
     if (q.about !== undefined) { S.gz[q.i] = q.about; PPL[q.i].point = q.about }
     else { PPL[q.i].sniffT = 1.5; Snd.sfx('sniff') }
   }
-  // 疑われている人を見る
   for (const c of CPUS) if (!S.meetQ.some(q => q.i === c && q.done && q.about !== undefined)) S.gz[c] = topSuspect(c)
-  const end = Math.max(...S.meetQ.map(q => q.at)) + 2.2
+  const end = Math.max(...S.meetQ.map(q => q.at)) + 2.4
   if (S.t >= end) { S.ph = 'choose'; S.t = 0; for (const n of PPL) n.point = -1; setPanel('choose') }
 }
-function topSuspect(c) { let b = -1, v = -1; for (let j = 0; j < NSEAT; j++) if (j !== c && S.E[j] > v) { v = S.E[j]; b = j } return b }
+function topSuspect(c) {
+  const row = S.V && S.V[c] ? S.V[c] : S.E
+  let b = -1, v = -1; if (!row) return b
+  for (let j = 0; j < NSEAT; j++) if (j !== c && row[j] > v) { v = row[j]; b = j } return b
+}
+// あなたに向く証拠（言い逃れの比べ相手）
+function againstYou() {
+  const mine = S.farts.filter(f => f.who === YOU)
+  const sound = mine.reduce((m, f) => Math.max(m, f.audible > 0.15 ? 2.5 * f.audible : 0), 0)
+  const saw = mine.reduce((s, f) => s + 1.5 * f.wit.length + 0.5 * f.gl.length, 0)
+  const fan = S.fans.reduce((s, f) => s + (f.kind === 'fanFart' ? 2.2 : f.kind === 'fanCold' ? 0.8 : f.kind === 'fanSeen' ? 1.2 : 0), 0)
+  const smell = S.smE ? S.smE[YOU] : 0
+  const parts = { sound, saw, fan, smell }
+  return { ...parts, total: sound + saw + fan + smell + S.carry[YOU], top: Object.entries(parts).sort((a, b) => b[1] - a[1])[0][0] }
+}
+// なすりつけの材料（相手に向く証拠）
+function argFor(T) {
+  const parts = { real: farted(T) ? 9 : 0, lift: lifted(T) ? 1.2 : 0, smell: S.smE ? S.smE[T] : 0, meet: 0.8 * S.said.filter(s => s.about === T).length, near: Math.abs(T - YOU) === 1 ? 0.5 : 0 }
+  return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0), top: Object.entries(parts).sort((a, b) => b[1] - a[1])[0][0] }
+}
 function choose(kind, target) {
   if (S.ph !== 'choose' && S.ph !== 'pick') return
   if (kind === 'blame' && target === undefined) { S.ph = 'pick'; setPanel('pick'); return }
   Snd.sfx('tap'); setPanel('')
-  const T = TT(), sh = sharp(), E = S.E, Ep = E[YOU]
-  const iFarted = S.farts.some(f => f.who === YOU)
+  const T = TT(), R2 = T.R, V = S.V
+  const iFarted = farted(YOU), ag = againstYou()
   S.choice = kind; S.ph = 'react'; S.t = 0
-  let line = T.say[kind], ok = false
+  let line = T.say[kind], ok = false, resp = '', reason = ''
+  S.blameT = -1
+  const each = fn => { for (const c of CPUS) fn(V[c], c) }
   if (kind === 'feign') {
-    const loud = S.farts.some(f => f.who === YOU && f.audible > 0.5)
-    ok = !loud; E[YOU] *= ok ? 0.6 : 1.05
+    const otherSmell = Math.max(...S.smE.filter((x, j) => j !== YOU))
+    ok = !iFarted || (ag.sound === 0 && ag.saw === 0 && ag.fan === 0 && ag.smell <= otherSmell + 0.2)
+    reason = ok ? 'feignOk' : ag.sound > 0 ? 'feignNgSound' : ag.saw > 0 ? 'feignNgSaw' : ag.fan > 0 ? 'ngFan' : 'feignNgSmell'
+    // 信じる度合いは人による（流されやすい・かばう人ほど信じる）
+    each((v, c) => { const tr = clamp(0.35 + PER(c).follow + PER(c).protect, 0, 1); v[YOU] = ok ? v[YOU] * (1 - 0.5 * tr) : v[YOU] * 1.1 + 0.1 })
   } else if (kind === 'blame') {
     line = line.replace('{T}', nameOf(target)); S.blameT = target
-    // 隣の人は匂いが回るので言い分が通りやすい（本人: なすりつけがなかなか成功しない）
-    const ratio = E[target] / Math.max(Ep, 0.1), cpuF = S.farts.some(f => f.who === target), nb = Math.abs(target - YOU) === 1
-    ok = R() < clamp(0.36 + ratio * 0.5 + (cpuF ? 0.4 : 0) + (nb ? 0.12 : 0) - sh * 0.12, 0.2, 0.95)
-    if (ok) { E[target] += Ep * 0.95 + 0.8; E[YOU] *= 0.4 } else E[YOU] = E[YOU] * 1.15 + 0.2
+    const a = argFor(target), hard = ag.sound > 0 || ag.saw > 0
+    if (a.real) { ok = true; reason = 'real' }
+    else { ok = iFarted ? a.total >= ag.total && a.total > 0 : a.total > 0; reason = ok ? a.top : (iFarted ? { sound: 'ngSound', saw: 'ngSaw', fan: 'ngFan', smell: 'ngSmell' }[ag.top] : 'ngWeak') }
+    // ほんまにこいた人を指したら必ず通る。ただし自分も丸聞こえ・目撃なら道連れで二人とも疑われる
+    // 信じる度合い: 流されやすさ＋自分でも怪しいと思っていたか＋隣で匂ったか
+    if (ok) each((v, c) => { if (c === target) return; const fl = PER(c).follow >= 0.5 ? PER(c).follow : 0, tr = clamp(fl + (v[target] > 0.3 ? 0.45 : 0) + 0, 0, 1); v[target] += tr * (v[YOU] * 0.7 + 0.5); if (!(a.real && hard)) v[YOU] *= 1 - 0.6 * tr })
+    else each(v => { v[YOU] = v[YOU] * 1.15 + 0.2 })
   } else if (kind === 'rage') {
-    const F = S.sniffer, fF = S.farts.some(f => f.who === F)
-    ok = R() < clamp(0.45 - sh * 0.2 + (fF ? 0.4 : 0), 0.1, 0.9)
-    if (ok) { E[F] += Ep * 0.8 + 0.6; E[YOU] *= 0.6 } else E[YOU] = E[YOU] * 1.25 + 0.3
-    S.blameT = F
+    const F = S.sniffer; ok = farted(F); S.blameT = F; reason = ok ? 'rageOk' : 'rageNg'
+    if (ok) each((v, c) => { if (c === F) return; const tr = clamp(0.4 + PER(c).follow, 0, 1); v[F] += tr * (v[YOU] * 0.7 + 0.5); v[YOU] *= 1 - 0.5 * tr }); else each(v => { v[YOU] = v[YOU] * 1.25 + 0.3 })
   }
-  S.chOk = ok; S.iFarted = iFarted
+  S.chOk = ok; S.iFarted = iFarted; S.reason = reason
+  S.E = avgE(V)
   say(YOU, line, 2.6)
   PPL[YOU].point = kind === 'blame' || kind === 'rage' ? S.blameT : -1
-  const resp = kind === 'confess' ? T.rConfess : kind === 'rage' ? (ok ? T.rRageOk : T.rRageNg) : ok ? pick(T.rOk) : pick(T.rNg)
-  S.respQ = { at: 1.7, i: kind === 'rage' ? pick(CPUS.filter(c => c !== S.sniffer)) : pick(CPUS.filter(c => c !== S.blameT)), text: resp }
+  if (kind === 'confess') resp = T.rConfess
+  else { const r = R2[reason] || R2.feignOk; resp = r.replace('{T}', S.blameT >= 0 ? nameOf(S.blameT) : '') }
+  // 返すのは、指された人でも言い出しっぺでもない人（決まった順）
+  const responder = kind === 'rage' ? CPUS.find(c => c !== S.sniffer) : CPUS.find(c => c !== S.blameT && c !== (kind === 'blame' ? -1 : S.sniffer)) ?? 1
+  S.respQ = { at: 1.7, i: responder, text: resp }
+  if (kind === 'blame' && ok && farted(target)) PPL[target].shock = 1
   if (kind === 'confess') { for (const c of CPUS) PPL[c].smile = 1 }
 }
 function updateReact(dt) {
   S.t += dt
-  if (S.respQ && S.t >= S.respQ.at) { const q = S.respQ; S.respQ = null; say(q.i, q.text, 2.2); if (S.choice === 'confess') Snd.laugh(4) }
-  if (S.t >= 3.6) {
+  if (S.respQ && S.t >= S.respQ.at) { const q = S.respQ; S.respQ = null; say(q.i, q.text, 2.4); if (S.choice === 'confess') Snd.laugh(4) }
+  if (S.t >= 3.9) {
     PPL[YOU].point = -1
     if (S.choice === 'confess') { S.culprit = YOU; return verdict() }
     startVote()
   }
 }
+// 投票: 各自の見方で一番疑う人。1位と2位が近い時は性格で決める
+function voteOf(c) {
+  const row = S.V[c], p = PER(c), cand = [...row.keys()].filter(j => j !== c).sort((a, b) => row[b] - row[a] || a - b)
+  const a = cand[0], b = cand[1]
+  if (row[a] < D.unsure) return -1 // わからん
+  if (row[a] - row[b] >= D.doubt * row[a]) return a
+  // 迷った時
+  const key = D.seats[c]
+  if (key === 'jiji') return a === YOU ? b : a
+  if (key === 'okan') return S.smE[b] > S.smE[a] ? b : a
+  if (key === 'oji') return b
+  if (key === 'itoko') { const last = S.said.at(-1); return last && (last.about === a || last.about === b) ? last.about : a }
+  return a
+}
 function startVote() {
   S.ph = 'vote'; S.t = 0; Snd.sfx('drum')
-  const sh = sharp(), vn = 1.5 * (1 - sh) + 0.35, E = S.E
-  S.votes = CPUS.map(c => { let b = -1, v = -1; for (let j = 0; j < NSEAT; j++) if (j !== c) { const s = E[j] + R() * vn; if (s > v) { v = s; b = j } } return { c, j: b } })
-  const cnt = new Array(NSEAT).fill(0); for (const v of S.votes) cnt[v.j]++
-  const mx = Math.max(...cnt), top = [...cnt.keys()].filter(i => cnt[i] === mx).sort((a, b) => E[b] - E[a])
-  S.culprit = Math.max(...E) < 0.55 || mx < 2 ? -1 : top[0]
+  S.votes = CPUS.map(c => ({ c, j: voteOf(c) }))
+  const cnt = new Array(NSEAT).fill(0); for (const v of S.votes) if (v.j >= 0) cnt[v.j]++
+  const mx = Math.max(...cnt), top = [...cnt.keys()].filter(i => cnt[i] === mx)
+  S.cnt = cnt
+  S.culprit = mx >= 2 && top.length === 1 ? top[0] : -1
+  S.unan = S.culprit >= 0 && cnt[S.culprit] === (S.culprit === YOU ? 4 : 3)
   banner(TT().vote, 'banner meet', 1.2)
 }
 function updateVote(dt) {
   S.t += dt
-  S.votes.forEach((v, k) => { if (!v.shown && S.t >= 0.5 + k * 0.35) { v.shown = true; PPL[v.c].point = v.j; S.gz[v.c] = v.j; Snd.sfx('point'); fx(nameOf(v.j, true) + '!', v.j === YOU ? 'vt red' : 'vt', { at: headPos(v.c).add(new THREE.Vector3(0, 0.36, 0)), size: 20, life: 1.9 }) } })
-  if (S.t >= 2.4) verdict()
+  S.votes.forEach((v, k) => {
+    if (!v.shown && S.t >= 0.5 + k * 0.45) {
+      v.shown = true; Snd.sfx('point')
+      if (v.j < 0) { fx('？', 'vt', { at: headPos(v.c).add(new THREE.Vector3(0, 0.36, 0)), size: 22, life: 1.9 }); return }
+      PPL[v.c].point = v.j; S.gz[v.c] = v.j
+      fx(nameOf(v.j, true) + '!', v.j === YOU ? 'vt red' : 'vt', { at: headPos(v.c).add(new THREE.Vector3(0, 0.36, 0)), size: 20, life: 1.9 })
+    }
+  })
+  if (S.t >= 2.6) verdict()
 }
 function verdict() {
   S.ph = 'verdict'; S.t = 0
-  const T = TT(), c = S.culprit, iF = S.farts.some(f => f.who === YOU), cF = c >= 0 && S.farts.some(f => f.who === c)
-  let bank = 0, head = '', sub = '', cls = 'verdict'
+  const T = TT(), c = S.culprit, iF = farted(YOU), cnt = S.cnt || new Array(NSEAT).fill(0), pend = S.pend
+  let bank = 0, head = '', cls = 'verdict', label = ''
+  S.outcome = 'unsolved'; S.tier = -1
   if (S.choice === 'confess') {
-    bank = Math.round(S.pend * 0.5) + (iF ? 20 : 10); S.outcome = 'confess'; head = T.confessed; sub = '+' + bank; cls += ' laugh'
+    bank = Math.round(pend * 0.5) + (iF ? 20 : 10); S.outcome = 'confess'; head = T.confessed; cls += ' laugh'
     Snd.sfx('safe')
-  } else if (c === -1) {
-    bank = S.pend; S.outcome = 'unsolved'; head = S.lang === 'ja' ? '迷宮入り…' : 'Case unsolved...'; sub = bank ? '+' + bank : ''; cls += ' safe'; Snd.sfx('safe')
-  } else if (c === YOU) {
-    if (iF) { S.lives--; S.stats.caught++; S.outcome = 'caught'; head = T.caught; cls += ' bad'; Snd.sfx('wahwah'); PPL[YOU].shock = 1; FX3.red = 1; shake = 0.3; S.capKind = 'caught'; S.wantCap = !S.photo || S.capPref !== 'framed' }
-    else { S.outcome = 'wrongYou'; head = T.wrongYou; cls += ' safe'; Snd.sfx('wahwah') }
-  } else if (!cF) {
-    bank = S.pend + Math.max(30, Math.round(S.pend * 0.5)); S.stats.framed++; S.outcome = 'framed'; head = T.framed; sub = '+' + bank; cls += ' good'
-    Snd.laugh(5); Snd.sfx('fanfare'); for (const n of PPL) if (n.i !== c) n.smile = 1; PPL[c].shock = 1; burstConfetti(60, headPos(c).add(_q.set(0, 0.9, 0)), 0.6)
-    S.capKind = 'framed'; S.wantCap = true; S.capPref = 'framed'
-  } else if (S.choice === 'blame' && c === S.blameT) {
-    // ほんまにこいてた人になすりつけた: 成功として見せる
-    bank = S.pend + 20; S.stats.framed++; S.outcome = 'blamed'; head = T.blamed; sub = '+' + bank; cls += ' good'
-    Snd.laugh(3); Snd.sfx('fanfare'); PPL[c].shock = 1
   } else {
-    bank = S.pend; S.outcome = 'correct'; head = nameOf(c) + T.correct; sub = bank ? '+' + bank : ''; cls += ' safe'; Snd.sfx('stamp')
+    const yv = cnt[YOU]
+    if (iF) {
+      const tier = Math.min(4, yv), td = D.tiers[tier]; S.tier = tier
+      bank = Math.round(pend * td.keep)
+      if (td.heart) { S.lives--; S.stats.caught++; S.outcome = 'caught'; PPL[YOU].shock = 1; FX3.red = 1; shake = 0.3; Snd.sfx('wahwah'); S.capKind = 'caught'; S.wantCap = !S.photo || S.capPref !== 'framed' }
+      else S.outcome = 'tier' + tier
+      if (td.carry) S.carryNext = td.carry
+      if (tier === 0) { S.stats.perfect++; bank += D.bonus.perfect }
+      head = T.tier[tier] + (td.heart ? (S.lang === 'ja' ? '！ハート−1' : '! -1 heart') : '')
+      cls += td.heart ? ' bad' : tier === 0 ? ' good' : ' safe'
+      if (!td.heart) Snd.sfx(tier === 0 ? 'fanfare' : 'safe')
+    } else if (yv > 0) { S.outcome = 'wrongYou'; head = T.R.innocent[S.round % T.R.innocent.length] + (S.lang === 'ja' ? '（ノーカウント）' : ' (no count)'); cls += ' safe' }
+    if (c >= 0 && c !== YOU) {
+      const cF = farted(c)
+      if (!cF) {
+        const fb = cnt[c] >= 3 ? Math.max(50, Math.round(pend * 0.6)) : Math.max(20, Math.round(pend * 0.3))
+        let extra = fb
+        if (S.choice === 'blame' && S.blameT === c && lifted(c)) { S.stats.bluff++; extra += D.bonus.bluff; label = T.bluff }
+        bank += extra; S.stats.framed++; S.stats.frameVotes += cnt[c]; S.outcome = 'framed'; head = (label ? label + '！' : '') + T.framed; cls = 'verdict good'
+        Snd.laugh(cnt[c] >= 3 ? 6 : 3); Snd.sfx('fanfare'); for (const n of PPL) if (n.i !== c) n.smile = 1; PPL[c].shock = 1; burstConfetti(cnt[c] >= 3 ? 80 : 40, headPos(c).add(_q.set(0, 0.9, 0)), 0.6)
+        S.capKind = 'framed'; S.wantCap = true; S.capPref = 'framed'
+      } else if (S.choice === 'blame' && S.blameT === c) {
+        bank += D.bonus.deduce; S.stats.deduce++; S.outcome = 'blamed'; label = T.deduce; head = label + '！' + T.blamed; cls = 'verdict good'
+        Snd.laugh(3); Snd.sfx('fanfare'); PPL[c].shock = 1
+      } else if (!iF) { S.outcome = 'correct'; head = nameOf(c) + T.correct; Snd.sfx('stamp') }
+    }
+    if (!head) { head = S.lang === 'ja' ? '迷宮入り…' : 'Case unsolved...'; cls += ' safe'; Snd.sfx('safe') }
+    if (S.unan) S.stats.unan++
+    if (c >= 0) S.prevCulprit = c
   }
   S.score += bank; S.pend = 0; S.lastBank = bank
-  if (c >= 0) fx(T.culprit + ' ' + nameOf(c) + (S.lang === 'ja' ? '！' : '!'), 'vt yel', { at: headPos(c).add(new THREE.Vector3(0, 0.5, 0)), size: 28, life: 2.6 })
-  fx(head + (sub ? '  ' + sub : ''), cls, { x: innerWidth / 2, y: innerHeight * (innerWidth < innerHeight ? 0.66 : 0.8), life: 2.6 })
+  // 文字は2つまで: 犯人（＋満場一致・技の名前）と、結果の帯
+  for (const f of [...FX]) if (f.cls.startsWith('vt')) killFx(f)
+  if (c >= 0) fx((S.unan ? T.unan + (S.lang === 'ja' ? 'で ' : ': ') : T.culprit + ' ') + nameOf(c) + (S.lang === 'ja' ? '！' : '!'), 'vt yel', { at: headPos(c).add(new THREE.Vector3(0, 0.5, 0)), size: 26, life: 2.9 })
+  fx(head + (bank ? '  +' + bank : ''), cls, { x: innerWidth / 2, y: innerHeight * (innerWidth < innerHeight ? 0.66 : 0.8), life: 2.9 })
   for (const n of PPL) n.point = -1
   if (c >= 0) for (const v of S.votes) if (v.j === c) PPL[v.c].point = c
-  Snd.setTrack(S.outcome === 'caught' ? 'sad' : S.outcome === 'framed' ? 'happy' : 'night')
+  Snd.setTrack(S.outcome === 'caught' ? 'sad' : S.outcome === 'framed' || S.outcome === 'blamed' || S.tier === 0 ? 'happy' : 'night')
 }
 function newYear() {
   S.ph = 'over'; S.t = -1.2; S.cleared = true; S.wantCapOver = !S.photo
@@ -1122,7 +1327,7 @@ function rankOf(score) { const r = TT().ranks; let k = 0; r.forEach((x, i) => { 
 function toResult() {
   S.mode = 'result'; S.ph = ''; clearFx(); hideHint(); setPanel('')
   const rounds = S.round - (S.lives <= 0 ? 1 : 0)
-  S.result = { score: S.score, rounds: Math.max(0, rounds), farts: S.stats.farts, framed: S.stats.framed, caught: S.stats.caught }
+  S.result = { score: S.score, rounds: Math.max(0, rounds), farts: S.stats.farts, framed: S.stats.framed, caught: S.stats.caught, perfect: S.stats.perfect, deduce: S.stats.deduce, bluff: S.stats.bluff, unan: S.stats.unan }
   if (!S.photo) { renderer.render(scene, camera); capture() }
   S.resT = 0; fillResult(); show('vResult'); Snd.setTrack('title')
   for (const n of PPL) { n.point = -1; n.smile = 1 }
@@ -1132,7 +1337,7 @@ function fillResult() {
   const r = S.result, T = TT(), rk = rankOf(r.score)
   $('#rScore').textContent = r.score; $('#rRounds').textContent = T.roundsL + ' ' + r.rounds + T.roundsU
   $('#rRank').textContent = rk.t; $('#rCmt').textContent = rk.c
-  $('#rStats').innerHTML = [[T.stFart, r.farts], [T.stFramed, r.framed], [T.stCaught, r.caught]].map(([l, v]) => `<div><b>${v}</b>${l}</div>`).join('')
+  $('#rStats').innerHTML = [[T.stPerfect, r.perfect], [T.stDeduce, r.deduce], [T.stFramed, r.framed], [T.stCaught, r.caught]].map(([l, v]) => `<div><b>${v}</b>${l}</div>`).join('')
   drawPhoto()
 }
 const photo = document.createElement('canvas'); photo.width = 512; photo.height = 384
@@ -1163,7 +1368,7 @@ async function saveCard() {
   const url = drawCard().toDataURL('image/png'), a = document.createElement('a'); a.href = url; a.download = 'fart-wolf.png'; document.body.appendChild(a); a.click(); a.remove()
 }
 const PUBLIC_URL = 'https://tom3games.github.io/onara-jinro/'
-function shareText() { const r = S.result, T = TT(); return T.share.replace('{P}', r.score).replace('{R}', r.rounds).replace('{K}', rankOf(r.score).t) }
+function shareText() { const r = S.result, T = TT(); return T.share2.replace('{P}', r.score).replace('{R}', r.rounds).replace('{K}', rankOf(r.score).t).replace('{C}', r.perfect).replace('{D}', r.deduce) }
 function xPost() { const text = shareText(); return { text, url: PUBLIC_URL, href: `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(PUBLIC_URL)}` } }
 function openX() { if (!S.result) return; Snd.sfx('tap'); window.open(xPost().href, '_blank', 'noopener') }
 
@@ -1180,6 +1385,7 @@ function updateHud(force) {
 function updateFartBtns() {
   const k = S.cd / D.cd
   for (const id of FIDS) { const b = $('#f_' + id); b.style.setProperty('--cd', k.toFixed(3)); b.disabled = !(S.ph === 'quiet' && S.cd <= 0) }
+  const fb = $('#f_fan'); fb.disabled = !(S.ph === 'quiet' && S.fanLeft > 0 && S.fanCd <= 0); fb.querySelectorAll('.dots i').forEach((el, k) => el.classList.toggle('off', k >= S.fanLeft))
 }
 
 // ---------- 見た目の更新
@@ -1194,6 +1400,7 @@ function updatePeople(dt) {
       else if (n.point >= 0) lookAtPoint(n, headPos(n.point))
       else { n.tYaw = Math.sin(tm * 0.4) * 0.25; n.tPitch = 0.05 }
     } else if (n.point >= 0) lookAtPoint(n, headPos(n.point))
+    else if (g === -2 && S.mode === 'play') lookAtPoint(n, catPos().add(_q.set(0, 0.15, 0)))
     else if (g >= 0 && S.mode === 'play') lookAtPoint(n, headPos(g))
     else if (n.key === 'itoko') { n.tYaw = 0; n.tPitch = 0.55 }
     else lookAtPoint(n, TABLE_PT.clone().add(_q.set(Math.sin(tm * 0.3 + n.i) * 0.3, 0.2, 0)))
@@ -1212,15 +1419,16 @@ function updatePeople(dt) {
     n.b.position.y = Math.sin(Math.min(1, n.lift) * Math.PI) * 0.07; n.b.rotation.z = Math.sin(n.lift * Math.PI) * 0.07
     // 座り直し: 左手をみかんへ伸ばして戻す
     n.reseat = Math.max(0, n.reseat - dt); const rk = Math.sin(clamp(n.reseat / 1.3, 0, 1) * Math.PI)
-    n.arms[0].rotation.x = lerp(-0.9, -1.45, rk) + (n.smile > 0.3 ? Math.sin(tm * 16) * 0.35 * n.smile : 0)
-    n.arms[0].rotation.z = lerp(-0.15, 0.25, rk)
+    n.arms[0].rotation.x = lerp(-0.9, -1.75, rk) + (n.smile > 0.3 ? Math.sin(tm * 16) * 0.35 * n.smile : 0)
+    n.arms[0].rotation.z = lerp(-0.15, 0.45, rk)
+    if (n.fanT > 0) { n.fanT -= dt; const fk = Math.min(1, n.fanT * 3); n.arms[0].rotation.x = lerp(-0.9, -1.5, fk); n.arms[0].rotation.z = -0.3 + Math.sin(tm * 26) * 0.5 * fk; uchiwa.visible = true } else if (n.i === YOU) uchiwa.visible = false
     // 指さし（右腕を伸ばして体ごと乗り出す。ぐいっと突く）
     if (n.point >= 0) n.pointK = Math.min(1, n.pointK + dt * 6); else n.pointK = Math.max(0, n.pointK - dt * 4)
     const jab = n.pointK > 0.9 ? Math.sin(tm * 10) * 0.06 : 0
     const arm = n.arms[1]
     arm.rotation.x = lerp(n.key === 'itoko' ? -1.1 : -0.9, -1.6 + jab, n.pointK); arm.rotation.y = lerp(0, n.yaw * 0.9, n.pointK); arm.rotation.z = lerp(0.15, 0.05, n.pointK)
     n.finger.scale.setScalar(0.4 + 0.6 * n.pointK)
-    n.b.rotation.x = 0.16 * n.pointK + 0.08 * rk - n.hop * 0.1
+    n.b.rotation.x = 0.16 * n.pointK + 0.2 * rk - n.hop * 0.1; n.b.rotation.z += 0.12 * rk
     if (n.phone) n.phone.visible = n.pointK < 0.5
     // 表情の値
     n.talk = Math.max(0, n.talk - dt)
@@ -1301,7 +1509,7 @@ function frameCamera() {
 }
 function updateCamera(dt) {
   shake = Math.max(0, shake - dt)
-  if (S.camHome) camera.position.copy(S.camHome).add(_q.set((R() - 0.5) * shake * 0.12, (R() - 0.5) * shake * 0.12, 0))
+  if (S.camHome) camera.position.copy(S.camHome).add(_q.set((VR() - 0.5) * shake * 0.12, (VR() - 0.5) * shake * 0.12, 0))
   if (S.camHome && FX3.judge > 0.01 && S.culprit >= 0) camera.position.lerp(headPos(S.culprit, _w), 0.1 * FX3.judge)
 }
 
@@ -1341,6 +1549,7 @@ function syncMute() { $('#icOn').hidden = Snd.muted; $('#icOff').hidden = !Snd.m
 function toTitle() { Snd.sfx('tap'); S.mode = 'title'; S.ph = ''; clearFx(); hideHint(); S.gz = PPL.map(() => -1); S.smell = 0; show('vTitle'); Snd.setTrack('title') }
 function pressFart(id) { Snd.init(); if (S.mode !== 'play' || S.ph !== 'quiet' || S.cd > 0) return false; doFart(YOU, id); return true }
 for (const id of FIDS) $('#f_' + id).addEventListener('pointerdown', e => { e.preventDefault(); pressFart(id) })
+$('#f_fan').addEventListener('pointerdown', e => { e.preventDefault(); pressFan() })
 for (const k of ['feign', 'blame', 'rage', 'confess']) $('#c_' + k).addEventListener('click', () => choose(k))
 document.querySelectorAll('#pickRow [data-i]').forEach(b => b.addEventListener('click', () => choose('blame', +b.dataset.i)))
 $('#bPickX').addEventListener('click', () => { if (S.ph === 'pick') { S.ph = 'choose'; setPanel('choose') } })
@@ -1355,6 +1564,7 @@ $('#bLang').addEventListener('click', () => { S.lang = S.lang === 'ja' ? 'en' : 
 $('#bMute').addEventListener('click', () => { Snd.init(); Snd.setMute(!Snd.muted); syncMute() })
 addEventListener('keydown', e => {
   if (e.repeat) return
+  if ((e.key === '4' || e.key.toLowerCase() === 'f') && S.ph === 'quiet') { pressFan(); return }
   const k = { '1': 'suka', '2': 'pu', '3': 'bubo', a: 'suka', s: 'pu', d: 'bubo' }[e.key.toLowerCase()]
   if (k && S.ph === 'quiet') pressFart(k)
 })
@@ -1366,7 +1576,7 @@ requestAnimationFrame(loop)
 
 // ---------- 検証用の窓口
 window.fw = {
-  S, D, PPL, camera, renderer, drawCard, xPost, toResult, choose, pressFart, doFart, evidence, startRun, nextRound, Snd, rankOf,
+  S, D, PPL, camera, renderer, pressFan, evidence, againstYou, argFor, voteOf, CAT, moya, drawCard, xPost, toResult, choose, pressFart, doFart, evidence, startRun, nextRound, Snd, rankOf,
   dbg: {
     pause() { S.dbgPause = true }, resume() { S.dbgPause = false; last = performance.now() },
     step(n = 1) { for (let k = 0; k < n; k++) step() }, render, seed(s) { S.fixedSeed = s },

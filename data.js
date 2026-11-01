@@ -30,8 +30,8 @@ window.FW = {
       lead: '大晦日、親戚のこたつ。屁をこいても、バレなければ勝ち。',
       mcName: 'ナレーター', start: 'こたつに入る', how: '遊び方', back: 'もどる', howT: '遊び方',
       how1: '好きな時に<b>おならボタン</b>。大きいほど高得点',
-      how2: '<b>鐘やくしゃみ</b>に合わせると音は消える。見られてる時と<b>匂いの溜めすぎ</b>は危ない',
-      how3: '会議で言い逃れ。<b>犯人に指されたらハート−1</b>。年越しまで8回戦、生き残れ',
+      how2: '<b>鐘・くしゃみ・猫の声</b>に合わせると音は消える。見られてる時と<b>匂いの溜めすぎ</b>は危ない',
+      how3: '会議で言い逃れ。誰が腰を浮かせたか見ておけ。<b>3票入ったらハート−1</b>。年越しまで8回戦',
       f_suka: 'すかし', f_pu: 'ぷっ', f_bubo: 'ブボボッ', ptsU: '点',
       round: '{N}回戦', roundOf: '{N}/{M}回戦', newYear: 'あけましておめでとう！', nyBonus: '年越しボーナス', quietT: 'しずかな時間', meetT: '誰や？会議',
       hintBell: '鐘の「ゴーン」に合わせて出せ', hintLook: '目がこっちを見てる時は危ない', hintFirst: '好きな時におならボタン',
@@ -47,7 +47,7 @@ window.FW = {
       say: { feign: 'え、なんの話？ みかん食べる？', blame: '{T}やろ。さっきからモゾモゾしてたやん', rage: '最初に言うた奴が犯人や！', confess: '…ワイや。年越しの一発や' },
       rOk: ['たしかに…', 'それは怪しいな', '言われてみれば…'], rNg: ['必死すぎやろ', 'あんた顔赤いで', 'その言い方は怪しい'],
       rRageOk: '…言い出しっぺ、怪しいな', rRageNg: '逆ギレは犯人のセリフや', rConfess: 'アホか！（爆笑）',
-      vote: '投票', culprit: '犯人は…', caught: 'バレた！ ハート−1', framed: '濡れ衣！ 大爆笑ボーナス', blamed: 'なすりつけ成功！', correct: 'で決着', wrongYou: '濡れ衣やのに…（ノーカウント）',
+      vote: '投票', culprit: '犯人は…', caught: 'バレた！ ハート−1', framed: '濡れ衣！大爆笑', blamed: 'なすりつけ成功！', correct: 'で決着', wrongYou: '濡れ衣やのに…（ノーカウント）',
       peace: '平和な夜…', confessed: '自白で笑いを取った', gameOver: 'こたつから追い出された',
       scoreL: 'スコア', scoreU: '点', roundsL: '生き延びた', roundsU: '回戦',
       again: 'もう一回', toTitle: 'タイトル', save: '画像を保存', xPost: 'Xでポスト',
@@ -62,8 +62,8 @@ window.FW = {
       lead: "New Year's Eve, the family kotatsu. Let one rip. Just don't get caught.",
       mcName: 'Narrator', start: 'Join the kotatsu', how: 'How to play', back: 'Back', howT: 'How to play',
       how1: 'Tap a <b>fart button</b> anytime. Bigger = more points',
-      how2: 'Time it with the <b>bell or a sneeze</b> to hide the sound. Beware eyes on you and <b>stink buildup</b>',
-      how3: 'Talk your way out. <b>Voted guilty = lose a heart</b>. Survive 8 rounds until midnight',
+      how2: 'Time it with the <b>bell, a sneeze or a meow</b> to hide the sound. Beware eyes on you and <b>stink buildup</b>',
+      how3: 'Talk your way out. Watch who lifts. <b>3 votes = lose a heart</b>. Survive 8 rounds',
       f_suka: 'Silent', f_pu: 'Pfft', f_bubo: 'BRAAP', ptsU: 'pts',
       round: 'Round {N}', roundOf: 'Round {N}/{M}', newYear: 'Happy New Year!', nyBonus: 'Survivor bonus', quietT: 'Quiet time', meetT: 'Who did it?',
       hintBell: 'Let it go on the BONG', hintLook: 'Eyes on you = danger', hintFirst: 'Tap a fart button anytime',
@@ -79,7 +79,7 @@ window.FW = {
       say: { feign: 'Huh? What smell? Mandarin?', blame: "It was {T}. They've been squirming all night.", rage: 'Whoever smelt it dealt it!', confess: "...It was me. A New Year's special." },
       rOk: ['True...', 'That is suspicious', 'Now that you mention it...'], rNg: ['Trying too hard', 'Your face is red', 'Sounds guilty'],
       rRageOk: '...They did say it first', rRageNg: "That's what a farter says", rConfess: 'You idiot! (laughing)',
-      vote: 'Vote', culprit: 'The farter is...', caught: 'Busted! -1 heart', framed: 'Framed! Big laugh bonus', blamed: 'Blame stuck!', correct: ' it is', wrongYou: 'Framed, but innocent (no penalty)',
+      vote: 'Vote', culprit: 'The farter is...', caught: 'Busted! -1 heart', framed: 'Framed! Big laugh', blamed: 'Blame stuck!', correct: ' it is', wrongYou: 'Framed, but innocent (no penalty)',
       peace: 'A peaceful night...', confessed: 'Confessed for laughs', gameOver: 'Kicked out of the kotatsu',
       scoreL: 'Score', scoreU: 'pts', roundsL: 'Survived', roundsU: 'rounds',
       again: 'Again', toTitle: 'Title', save: 'Save image', xPost: 'Post on X',
@@ -91,3 +91,86 @@ window.FW = {
     },
   },
 }
+
+// ---- 2026-11-01 判定を決定的に（推理と技術で決まる）・猫・うちわ
+Object.assign(window.FW, {
+  // CPU の性格（固定の重み）。hear=耳 nose=鼻 eye=目 / protect=あなたをかばう / follow=人の発言に流される / grudge=前の回に指された人を根に持つ / deflect=自分がこくと人を指す
+  pers: {
+    jiji: { hear: 0.5, nose: 0.6, eye: 0.8, protect: 0.35, follow: 0.3, grudge: 0, deflect: 0 },
+    okan: { hear: 1.0, nose: 1.4, eye: 1.0, protect: 0, follow: 0.15, grudge: 0, deflect: 0 },
+    oji: { hear: 0.9, nose: 0.8, eye: 0.7, protect: 0, follow: 0.3, grudge: 0, deflect: 1.0 },
+    itoko: { hear: 1.0, nose: 1.0, eye: 0.6, protect: 0, follow: 0.5, grudge: 0.9, deflect: 0 },
+  },
+  // 迷う幅（1位と2位の差がこれ未満なら性格で決める）
+  doubt: 0.4,
+  unsure: 0.7,
+  // 票数ごとの段階（あなたがこいた時）。keep=その回の点を何割残すか、heart=ハートを減らすか
+  tiers: [{ keep: 1, heart: 0 }, { keep: 0.8, heart: 0 }, { keep: 0.5, heart: 0 }, { keep: 0, heart: 1 }, { keep: 0, heart: 1, carry: 0.8 }],
+  // 技術の点
+  bonus: { perfect: 30, deduce: 30, bluff: 30 },
+  fan: { uses: 2, recent: 4, cold: 0.5, scatter: 0.3, cd: 1.2 },
+  cat: { win: 0.35, walk: 5.2 },
+})
+window.FW.mask.cat = { pu: 1, suka: 1, bubo: 0 }
+Object.assign(window.FW.T.ja, {
+  f_fan: 'あおぐ',
+  cat: 'にゃ', catLove: ['かわいい〜', 'おっ、タマや', 'にゃんこ〜'],
+  fanFart: 'あんたオナラしたやろ？', fanCold: 'こんな寒いのに？', fanSeen: '…なんで今あおいだん',
+  // 会議の発言（証拠の種類ごと。{X}=疑う相手）
+  L: {
+    sound: ['今の音、{X}の方やったで', '{X}のとこから「ぷっ」て聞こえた'],
+    soundMix: ['鐘になんか混ざってなかった？', 'くしゃみに何か混ざってたで', '猫の声の裏、なんか鳴ったで'],
+    saw: ['{X}、さっきちょっと浮いてたで', '見てたで。{X}、腰浮いてた'],
+    glance: ['{X}、さっき目そらしたな', '{X}、なんかソワソワしてたな'],
+    smell: ['{X}の方から匂いするで', 'こたつの{X}側からや', '{X}のあたり、空気が重い'],
+    lift: ['{X}、さっき座り直してたな', '{X}、モゾモゾしてたで'],
+    fanFart: ['なんで急にあおいだん、{X}', '出してすぐあおいだやろ、{X}'],
+    fanCold: ['{X}、こんな寒いのにあおいでたな'],
+    fanSeen: ['{X}があおいでるの見たで'],
+    grudge: ['また{X}ちゃうん？'],
+  },
+  // 言い逃れへの返し（理由つき）
+  R: {
+    real: '{T}、顔赤いで！', lift: '確かに{T}、腰浮かしてたな', smell: '言われてみれば{T}の方から…', meet: 'やっぱり{T}か…', near: '{T}、隣やもんな…',
+    ngSound: 'いや、音はこっちからしたで', ngSaw: '見てたで。あんたや', ngSmell: 'いや、匂いはあんたの方や', ngFan: 'あおいでたん、あんたやん', ngWeak: '{T}は何もしてへんで',
+    feignOk: 'まあ…ええか', feignNgSound: 'いや、聞こえたで', feignNgSaw: 'いや、見たで', feignNgSmell: '匂いはごまかされへんで',
+    rageOk: '…言い出しっぺ、怪しいな', rageNg: '逆ギレは犯人のセリフや',
+    innocent: ['え、ワイちゃうで！', 'こいてへんのに！', '冤罪や…'],
+  },
+  tier: ['セーフ', 'ちょっと疑われた', '怪しまれた', 'バレた', '完全にバレた'],
+  unan: '満場一致',
+  perfect: '完全犯罪', deduce: '名推理', bluff: 'ハッタリ',
+  stPerfect: '完全犯罪', stDeduce: '名推理', stBluff: 'ハッタリ', stUnan: '満場一致',
+  share2: 'おなら人狼で{P}点、{R}回戦まで生き延びた【{K}】完全犯罪{C}回・名推理{D}回 #おなら人狼 #バカゲー',
+  howFan: '<b>うちわ</b>は2回だけ。匂いを散らせるが、出した直後・匂わない時・見られてる時は怪しまれる',
+})
+Object.assign(window.FW.T.en, {
+  f_fan: 'Fan',
+  cat: 'meow', catLove: ['Aww, kitty!', 'Hey, Tama!', 'So cute~'],
+  fanFart: 'You just farted, huh?', fanCold: 'Fanning? In this cold?', fanSeen: '...Why fan right now?',
+  L: {
+    sound: ['That sound came from {X}!', 'I heard a "pfft" from {X}'],
+    soundMix: ['Something was mixed into that bell...', 'That sneeze had a friend.', 'Something under that meow...'],
+    saw: ['{X}, you lifted a bit just now.', 'I saw it. {X} lifted.'],
+    glance: ['{X}, you looked away just now.', '{X} is acting fidgety.'],
+    smell: ["It's coming from {X}'s side.", "The {X} side of the kotatsu.", 'The air is heavy near {X}.'],
+    lift: ['{X} was shifting around.', '{X} was squirming.'],
+    fanFart: ['{X}, why the sudden fanning?', '{X} fanned right after, huh?'],
+    fanCold: ['{X} was fanning in this cold.'],
+    fanSeen: ['I saw {X} fanning.'],
+    grudge: ['{X} again, right?'],
+  },
+  R: {
+    real: '{T}, your face is red!', lift: '{T} did lift a bit...', smell: "Now that you say it, {T}'s side...", meet: 'So it was {T}...', near: "{T} is right next to you...",
+    ngSound: 'No, the sound came from you.', ngSaw: 'I saw it. It was you.', ngSmell: "No, the smell is on your side.", ngFan: 'You were the one fanning.', ngWeak: "{T} didn't do anything.",
+    feignOk: 'Well... fine.', feignNgSound: 'No, we heard it.', feignNgSaw: 'No, I saw it.', feignNgSmell: "You can't hide that smell.",
+    rageOk: '...They did say it first', rageNg: "That's what a farter says",
+    innocent: ["Hey, it wasn't me!", "I didn't do it!", 'Framed...'],
+  },
+  tier: ['Safe', 'A little suspicious', 'Suspected', 'Busted', 'Totally busted'],
+  unan: 'Unanimous',
+  perfect: 'Perfect crime', deduce: 'Deduction', bluff: 'Bluff',
+  stPerfect: 'Perfect', stDeduce: 'Deduced', stBluff: 'Bluffs', stUnan: 'Unanimous',
+  share2: 'Scored {P} in FART WOLF, survived {R} rounds [{K}] perfect crimes {C}, deductions {D} #FartWolf #おなら人狼',
+  howFan: 'The <b>fan</b> works twice. Clears the smell, but fanning right after, with no smell, or while watched is suspicious',
+})

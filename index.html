@@ -9,12 +9,12 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="おなら人狼 | FART WOLF">
 <meta property="og:description" content="こたつでこっそりおなら。疑われたら言い逃れ、なすりつけ、逆ギレ。犯人に指されなければ勝ち。">
-<meta property="og:image" content="https://tom3games.github.io/onara-jinro/og.png?v=1">
+<meta property="og:image" content="https://tom3games.github.io/onara-jinro/og.png?v=2">
 <meta property="og:url" content="https://tom3games.github.io/onara-jinro/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="おなら人狼 | FART WOLF">
 <meta name="twitter:description" content="こたつでこっそりおなら。疑われたら言い逃れ。犯人に指されなければ勝ち。">
-<meta name="twitter:image" content="https://tom3games.github.io/onara-jinro/og.png?v=1">
+<meta name="twitter:image" content="https://tom3games.github.io/onara-jinro/og.png?v=2">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='26' width='56' height='30' rx='6' fill='%23b8232f' stroke='%231b1620' stroke-width='4'/%3E%3Ccircle cx='32' cy='18' r='12' fill='%23f4c7a1' stroke='%231b1620' stroke-width='4'/%3E%3Ccircle cx='50' cy='14' r='8' fill='%23b9d27a' stroke='%231b1620' stroke-width='3'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,7 +79,8 @@ button{font-family:inherit;color:inherit;font-size:inherit;-webkit-user-select:n
 .hudBot{position:absolute;left:0;right:0;bottom:0;padding:0 max(12px,env(safe-area-inset-right)) max(12px,calc(env(safe-area-inset-bottom) + 8px)) max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
 .farts{display:flex;gap:8px;width:100%;max-width:480px;pointer-events:auto}
 .fb{position:relative;flex:1;min-width:0;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--paper);color:var(--ink);border:3px solid var(--ink);border-radius:16px;box-shadow:0 5px 0 var(--ink);font-weight:900;cursor:pointer;padding:4px 2px;overflow:hidden;--cd:0}
-.fb#f_suka{background:#d9efb8}.fb#f_bubo{flex:1.3;background:#ffb35c}
+.fb#f_suka{background:#d9efb8}.fb#f_bubo{flex:1.3;background:#ffb35c}.fb.fan{flex:.78;background:#cfe6ff}
+.fb .dots{display:flex;gap:4px;position:relative;height:13px;align-items:center}.fb .dots i{width:8px;height:8px;border-radius:50%;background:var(--ink);display:block}.fb .dots i.off{background:transparent;box-shadow:inset 0 0 0 2px rgba(27,22,32,.4)}
 .fb::before{content:'';position:absolute;left:0;right:0;top:0;height:calc(var(--cd) * 100%);background:rgba(27,22,32,.5);pointer-events:none}
 .fb:active:not(:disabled){transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
 .fb svg{width:28px;height:28px;stroke:var(--ink);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;position:relative}
@@ -111,7 +112,7 @@ html[lang=ja] .vt{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
 .sb.mine{background:var(--yel)}
 .banner{position:absolute;left:0;top:0;font-family:var(--disp);font-size:clamp(22px,6.4vw,40px);color:#fff;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 5px 0 var(--ink);white-space:nowrap}
 .banner.meet{color:var(--yel)}.banner.zawa{color:var(--grn);font-size:clamp(20px,5.6vw,34px)}.banner.over{color:#ff6a5a}
-.verdict{position:absolute;left:0;top:0;font-family:var(--disp);font-size:clamp(20px,5.8vw,40px);padding:6px 16px;border:4px solid var(--ink);border-radius:14px;box-shadow:0 5px 0 var(--ink);white-space:nowrap;color:var(--ink);background:#7dffe9}
+.verdict{position:absolute;left:0;top:0;font-family:var(--disp);font-size:clamp(19px,5.4vw,36px);padding:6px 16px;border:4px solid var(--ink);border-radius:14px;box-shadow:0 5px 0 var(--ink);white-space:nowrap;max-width:calc(100vw - 20px);overflow:hidden;text-overflow:ellipsis;color:var(--ink);background:#7dffe9}
 .verdict.good{background:var(--yel)}.verdict.bad{background:var(--red);color:#fff}.verdict.laugh{background:#d9efb8}
 html[lang=ja] .banner,html[lang=ja] .verdict{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
 
@@ -196,6 +197,7 @@ html[lang=ja] .rank{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
       <button type="button" class="fb" id="f_suka"><svg viewBox="0 0 24 24"><path d="M7 20c-2-3 2-5 0-8s2-5 0-8M12 20c-2-3 2-5 0-8s2-5 0-8M17 20c-2-3 2-5 0-8s2-5 0-8"/></svg><span class="fn"></span><span class="fp"></span></button>
       <button type="button" class="fb" id="f_pu"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="5"/><path d="M4 7l2 2M20 7l-2 2M12 3v3"/></svg><span class="fn"></span><span class="fp"></span></button>
       <button type="button" class="fb" id="f_bubo"><svg viewBox="0 0 24 24"><path d="M6 17a4 4 0 0 1 0-8 5 5 0 0 1 9-2 4 4 0 0 1 4 6 3 3 0 0 1-2 5H8z"/><path d="M2 5l3 2M22 5l-3 2M12 1v3M2 21l3-2M22 21l-3-2"/></svg><span class="fn"></span><span class="fp"></span></button>
+      <button type="button" class="fb fan" id="f_fan"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="6.5"/><path d="M12 15.5V22M9 6.5c1.5-1 4.5-1 6 0"/></svg><span class="fn" id="fanTxt"></span><span class="dots" id="fanDots"><i></i><i></i></span></button>
     </div>
     <div class="choose" id="choose" hidden>
       <button type="button" class="cb" id="c_feign"><span class="cn"></span><span class="cs"></span></button>
@@ -253,7 +255,7 @@ html[lang=ja] .rank{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
   },6000);
 })();
 </script>
-<script src="data.js?v=2"></script>
-<script type="module" src="game.js?v=2"></script>
+<script src="data.js?v=3"></script>
+<script type="module" src="game.js?v=3"></script>
 </body>
 </html>

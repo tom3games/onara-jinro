@@ -97,21 +97,31 @@ await t('なすりつける→相手を選ぶ→投票→判定', async () => {
   const r = await G(() => { const seen = new Set(); let out = ''; while (fw.S.ph !== 'quiet' && fw.S.ph !== 'over' && seen.size < 9) { fw.dbg.step(1); seen.add(fw.S.ph); if (fw.S.ph === 'verdict') out = fw.S.outcome } return { seen: [...seen], out, lives: fw.S.lives, score: fw.S.score, culprit: fw.S.culprit } })
   expect(r.seen.includes('vote') && r.seen.includes('verdict') && r.out, JSON.stringify(r)); return r
 })
-await t('バレたらハート−1・点は没収 / 濡れ衣ならボーナス', async () => {
-  const r = await G(() => { const o = []; for (const k of [0, 1]) { fw.dbg.seed(50 + k) } return true })
-  // 判定の計算を直接たたく
+await t('票数で段階が決まる（0票=セーフ+完全犯罪 / 1=8割 / 2=半分 / 3=バレ / 4=完全バレ+次の回に疑い）', async () => {
   const q = await G(() => {
-    const S = fw.S, out = {}
-    // バレ
-    S.ph = 'react'; S.choice = 'feign'; S.pend = 130; S.lives = 3; S.score = 0; S.farts = [{ who: 2, id: 'bubo' }]; S.E = [0, 0, 9, 0, 0]
-    S.votes = [0, 1, 3, 4].map(c => ({ c, j: 2 })); S.culprit = 2; fw.S.ph = 'vote'; S.t = 9; fw.dbg.step(1); out.caught = [S.outcome, S.lives, S.score]
-    // 濡れ衣
-    S.choice = 'blame'; S.pend = 100; S.farts = [{ who: 2, id: 'bubo' }]; S.E = [0, 0, 0, 9, 0]; S.votes = [0, 1, 2, 4].map(c => ({ c, j: 3 })); S.culprit = 3; S.ph = 'vote'; S.t = 9; const sc0 = S.score; fw.dbg.step(1); out.framed = [S.outcome, S.score - sc0]
-    // 自白
-    S.choice = 'confess'; S.pend = 100; S.farts = [{ who: 2, id: 'bubo' }]; S.culprit = 2; S.ph = 'react'; S.t = 9; S.respQ = null; const sc1 = S.score, l1 = S.lives; fw.dbg.step(1); out.confess = [S.outcome, S.score - sc1, S.lives - l1]
+    const S = fw.S, out = []
+    for (const yv of [0, 1, 2, 3, 4]) {
+      S.ph = 'vote'; S.t = 9; S.choice = 'feign'; S.pend = 100; S.lives = 3; S.score = 0; S.farts = [{ who: 2, id: 'bubo', wit: [], gl: [] }]; S.lifts = []; S.carryNext = 0
+      const vv = [0, 1, 3, 4].map((c, k) => ({ c, j: k < yv ? 2 : -1, shown: true })); S.votes = vv
+      S.cnt = [0, 0, yv, 0, 0]; S.culprit = yv >= 2 ? 2 : -1; S.unan = yv === 4
+      fw.dbg.step(1); out.push([yv, S.outcome, S.score, S.lives, S.carryNext])
+    }
     return out
   })
-  expect(q.caught[0] === 'caught' && q.caught[1] === 2 && q.caught[2] === 0 && q.framed[0] === 'framed' && q.framed[1] === 150 && q.confess[0] === 'confess' && q.confess[1] === 70 && q.confess[2] === 0, JSON.stringify(q)); return q
+  const want = [[0, 'tier0', 130, 3, 0], [1, 'tier1', 80, 3, 0], [2, 'tier2', 50, 3, 0], [3, 'caught', 0, 2, 0], [4, 'caught', 0, 2, 0.8]]
+  expect(JSON.stringify(q) === JSON.stringify(want), JSON.stringify(q)); return q
+})
+await t('濡れ衣は票数でボーナスが変わる（2票=小 / 3票=大）・自白は半分+20', async () => {
+  const q = await G(() => {
+    const S = fw.S, out = {}
+    for (const n of [2, 3]) {
+      S.choice = 'feign'; S.pend = 100; S.farts = [{ who: 2, id: 'bubo', wit: [], gl: [] }]; S.lifts = []; S.cnt = [0, 0, 0, n, 0]; S.culprit = 3; S.votes = []; S.ph = 'vote'; S.t = 9; const s0 = S.score; fw.dbg.step(1); out['f' + n] = [S.outcome, S.score - s0]
+    }
+    S.choice = 'confess'; S.pend = 100; S.farts = [{ who: 2, id: 'bubo', wit: [], gl: [] }]; S.culprit = 2; S.ph = 'react'; S.t = 9; S.respQ = null; const sc1 = S.score, l1 = S.lives; fw.dbg.step(1); out.confess = [S.outcome, S.score - sc1, S.lives - l1]
+    return out
+  })
+  // 0票なので 100 + 完全犯罪30 に、濡れ衣 2票=+30 / 3票=+60
+  expect(q.f2[0] === 'framed' && q.f2[1] === 160 && q.f3[1] === 190 && q.confess[0] === 'confess' && q.confess[1] === 70 && q.confess[2] === 0, JSON.stringify(q)); return q
 })
 await t('すかし連打は匂いがたまって「ざわざわ」になる', async () => {
   const r = await G(() => { fw.dbg.seed(77); fw.startRun(); fw.dbg.step(30); let n = 0; while (fw.S.ph === 'quiet') { if (fw.pressFart('suka')) n++; fw.dbg.step(1) } return { n, zawa: fw.S.zawa, smell: +fw.S.smell.toFixed(2) } })
@@ -137,6 +147,145 @@ await t('英語に切り替えると文言が変わり、はみ出さない', as
   const r = await G(() => ({ rank: document.querySelector('#rRank').textContent, again: document.querySelector('#bAgain').textContent, lang: document.documentElement.lang }))
   const o = await overflow(p)
   expect(r.lang === 'en' && /Again/.test(r.again) && /[A-Za-z]/.test(r.rank) && o.sw <= o.W && !o.bad.length, JSON.stringify([r, o])); await p.click('#bLang'); return r
+})
+// ---- 判定は決定的（推理と技術で決まる）
+// 状況を手で組んで会議から先を回す
+const setup = (o) => p.evaluate(o => {
+  const S = fw.S; fw.dbg.seed(11); fw.startRun(); S.cpuPlan = []; S.resPlan = []; S.evs = []
+  S.farts = o.farts.map(f => ({ wit: [], gl: [], mask: 0, audible: 0, smellAt: 0, t: 1, ...f })); S.lifts = o.lifts || []; S.fans = o.fans || []; S.carry = [0, 0, 0, 0, 0]
+  S.t = 99; S.ph = 'quiet'; fw.dbg.step(1)
+  while (S.ph === 'meet') fw.dbg.step(1)
+  return { ph: S.ph, said: S.said.map(x => x.type + '>' + x.about), sniffer: S.sniffer }
+}, o)
+const run = (kind, target) => p.evaluate(([kind, target]) => { const S = fw.S; fw.choose(kind, target); const ok = S.chOk, reason = S.reason; while (S.ph !== 'verdict' && S.mode === 'play') fw.dbg.step(1); return { ok, reason, votes: S.votes.map(v => v.j), outcome: S.outcome, cnt: S.cnt } }, [kind, target])
+await t('同じ seed・同じ操作なら判定も同じ（結果に乱数が入っていない）', async () => {
+  const play = () => G(() => {
+    const S = fw.S; fw.dbg.seed(321); fw.startRun(); const log = []; let g = 0, pph = ''
+    while (S.mode === 'play' && S.round <= 4 && g++ < 60000) {
+      if (S.ph === 'quiet') { const pk = S.evs.find(e => S.t >= e.tp && S.t <= e.tp + e.dur); if (pk && pk.type === 'bell') fw.pressFart('bubo') }
+      if (S.ph === 'choose') { const cf = S.farts.find(f => f.who !== 2); cf ? fw.choose('blame', cf.who) : fw.choose('blame', 3) }
+      fw.dbg.step(1)
+      if (S.ph === 'verdict' && pph !== 'verdict') log.push(S.round + ':' + S.outcome + ':' + S.votes.map(v => v.j).join('') + ':' + S.score)
+      pph = S.ph
+    }
+    return log.join(' ')
+  })
+  const a = await play(), b = await play(); expect(a === b && a.length > 10, a + ' / ' + b); return a
+})
+await t('本当にこいた人を指すと必ず通る', async () => {
+  await setup({ farts: [{ who: 2, id: 'suka' }, { who: 0, id: 'suka', t: 3 }] })
+  const r = await run('blame', 0); expect(r.ok && r.reason === 'real', JSON.stringify(r)); return r
+})
+await t('座り直しただけの人を指すと証拠次第（隣で座り直し=通る / 丸聞こえなら通らない）', async () => {
+  await setup({ farts: [{ who: 2, id: 'suka' }], lifts: [{ who: 3, t: 4, real: false, seen: [] }] })
+  const a = await run('blame', 3)
+  await setup({ farts: [{ who: 2, id: 'bubo', audible: 1 }], lifts: [{ who: 3, t: 4, real: false, seen: [] }] })
+  const b = await run('blame', 3)
+  expect(a.ok && a.reason !== 'real' && !b.ok && b.reason === 'ngSound', JSON.stringify([a, b])); return [a.reason, b.reason]
+})
+await t('何もしていない離れた人を指すと通りにくい', async () => {
+  await setup({ farts: [{ who: 2, id: 'suka' }] })
+  const r = await run('blame', 0); expect(!r.ok, JSON.stringify(r)); return r.reason
+})
+await t('逆ギレは言い出しっぺが本当にこいていた時だけ通る', async () => {
+  const s1 = await setup({ farts: [{ who: 2, id: 'suka' }, { who: 3, id: 'suka', t: 2 }] }); const a = await run('rage')
+  const s2 = await setup({ farts: [{ who: 2, id: 'suka' }] }); const b = await run('rage')
+  expect(s1.sniffer === 3 && a.ok && !b.ok, JSON.stringify([s1, a.ok, s2, b.ok])); return [s1.sniffer, s2.sniffer]
+})
+await t('しらばっくれる: 丸聞こえ・目撃は通らない / 隠せていれば通る', async () => {
+  await setup({ farts: [{ who: 2, id: 'bubo', mask: 1 }] }); const a = await run('feign')
+  await setup({ farts: [{ who: 2, id: 'bubo', mask: 1, wit: [1] }] }); const b = await run('feign')
+  await setup({ farts: [{ who: 2, id: 'bubo', audible: 1 }] }); const c = await run('feign')
+  expect(a.ok && !b.ok && b.reason === 'feignNgSaw' && !c.ok, JSON.stringify([a, b, c])); return [a.reason, b.reason, c.reason]
+})
+await t('会議の発言は証拠の種類に合う（匂いだけなら匂いの言い方、音なら音）', async () => {
+  const a = await setup({ farts: [{ who: 3, id: 'suka' }] }); const la = await G(() => fw.S.meetQ.slice(1).map(q => q.text))
+  const b = await setup({ farts: [{ who: 2, id: 'bubo', audible: 1 }] }); const lb = await G(() => fw.S.meetQ.slice(1).map(q => q.text))
+  expect(a.said.every(x => x.startsWith('smell')) && la.every(t => /匂|側|空気/.test(t)) && b.said[0].startsWith('sound') && /音|聞こえ/.test(lb[0]), JSON.stringify([a, la, b, lb])); return [la, lb]
+})
+await t('CPU の性格で投票が分かれる例（耳の遠いじいちゃん・迷った時の性格）', async () => {
+  const r = await G(() => {
+    const S = fw.S; S.smE = [0, 0, 0, 0, 0]; S.said = []
+    S.V = { 0: [0, 0.9, 1.0, 0.1, 0], 1: [0, 0, 1.0, 0.9, 0], 3: [0, 0.9, 1.0, 0, 0], 4: [0, 0.1, 1.0, 0.9, 0] }
+    return [0, 1, 3, 4].map(c => fw.voteOf(c))
+  })
+  // 1位と2位が近い時: じいちゃんはあなたをかばう / おじさんは2位を選ぶ / おかん・いとこは1位
+  expect(r[0] === 1 && r[1] === 2 && r[2] === 1 && r[3] === 2, JSON.stringify(r)); return r
+})
+await t('満場一致は1.5〜6.5割（普通に遊ぶ人で 6 ゲーム）、割れる回もある', async () => {
+  const r = await G(() => {
+    const S = fw.S; let n = 0, un = 0, split = 0
+    for (let g = 0; g < 6; g++) {
+      fw.dbg.seed(700 + g); fw.startRun(); let k = 0, pph = '', st = 0
+      while (S.mode === 'play' && k++ < 120000) {
+        if (S.ph === 'quiet') { const pk = S.evs.find(e => e.type !== 'cat' && S.t >= e.tp + 0.3 && S.t <= e.tp + e.dur); if (pk && st !== S.round) { fw.pressFart(pk.type === 'bell' ? 'bubo' : 'pu'); st = S.round } }
+        else if (S.ph === 'choose') { const cf = S.farts.find(f => f.who !== 2); cf ? fw.choose('blame', cf.who) : fw.choose('feign') }
+        fw.dbg.step(1)
+        if (S.ph === 'verdict' && pph !== 'verdict' && S.choice !== 'confess') { n++; if (S.unan) un++; if (Math.max(...S.cnt) <= 2) split++ }
+        pph = S.ph
+      }
+    }
+    return { n, un: +(un / n).toFixed(2), split: +(split / n).toFixed(2) }
+  })
+  expect(r.un >= 0.15 && r.un <= 0.65 && r.split >= 0.2, JSON.stringify(r)); return r
+})
+// ---- 猫・うちわ
+await t('猫の鳴く窓(0.35秒)の中のぷっは消える・窓の外とブボボッは丸聞こえ', async () => {
+  const r = await G(() => {
+    const S = fw.S; fw.dbg.seed(11); fw.startRun()
+    S.evs = [{ type: 'cat', src: -1, tw: 1, tp: 3, dur: fw.D.cat.win, walk: 5 }]; S.cpuPlan = []; S.resPlan = []
+    const at = (t, id) => { S.t = t; S.cd = 0; fw.doFart(2, id); return S.farts.at(-1).audible }
+    return { inPu: at(3.1, 'pu'), inSuka: at(3.2, 'suka'), inBubo: at(3.3, 'bubo'), afterPu: at(3.4, 'pu'), beforePu: at(2.95, 'pu') }
+  })
+  expect(r.inPu === 0 && r.inSuka === 0 && r.inBubo === 1 && r.afterPu === 0.5 && r.beforePu === 0.5, JSON.stringify(r)); return r
+})
+await t('猫が鳴くと家族が猫を見る・鳴き声が鳴る', async () => {
+  const r = await G(() => { const S = fw.S; fw.dbg.seed(11); fw.startRun(); S.evs = [{ type: 'cat', src: -1, tw: 0.2, tp: 1, dur: 0.35, walk: 5 }]; S.cpuPlan = []; S.resPlan = []; const m0 = fw.Snd.played.meow || 0; while (S.t < 1.1) fw.dbg.step(1); return { gz: [0, 1, 3, 4].map(c => S.gz[c]), cat: fw.CAT.on, meow: (fw.Snd.played.meow || 0) - m0 } })
+  expect(r.gz.every(g => g === -2) && r.cat && r.meow === 1, JSON.stringify(r)); return r
+})
+await t('うちわ: 出した直後・匂わない時・見られてる時はバレ、良い使い方は疑われない。2回で終わり', async () => {
+  const r = await G(() => {
+    const S = fw.S, k = []
+    const fresh = () => { fw.dbg.seed(11); fw.startRun(); S.evs = []; S.cpuPlan = []; S.resPlan = []; S.gz = [-1, -1, -1, -1, -1]; S.t = 5 }
+    fresh(); S.smell = 2; S.farts = [{ who: 2, id: 'suka', t: 3, wit: [], gl: [] }]; fw.pressFan(); k.push(S.fans[0].kind)
+    fresh(); S.smell = 0.1; fw.pressFan(); k.push(S.fans[0].kind)
+    fresh(); S.smell = 2; S.gz[1] = 2; fw.pressFan(); k.push(S.fans[0].kind)
+    fresh(); S.smell = 2; S.farts = [{ who: 3, id: 'suka', t: 1, wit: [], gl: [] }]; const sm0 = S.smell; fw.pressFan(); k.push(S.fans[0].kind, +(S.smell / sm0).toFixed(2))
+    S.fanCd = 0; const two = fw.pressFan(); S.fanCd = 0; const three = fw.pressFan()
+    return { k, two, three, left: S.fanLeft }
+  })
+  expect(JSON.stringify(r.k) === JSON.stringify(['fanFart', 'fanCold', 'fanSeen', 'ok', 0.3]) && r.two === true && r.three === false && r.left === 0, JSON.stringify(r)); return r
+})
+await t('うちわの悪い使い方は会議の発言と疑いに出る', async () => {
+  await setup({ farts: [{ who: 2, id: 'suka', t: 3 }], fans: [{ t: 4, kind: 'fanFart', seenBy: [] }] })
+  const r = await G(() => ({ said: fw.S.said.map(x => x.type), text: fw.S.meetQ.slice(1).map(q => q.text), top: fw.S.E.indexOf(Math.max(...fw.S.E)) }))
+  expect(r.said[0] === 'fanFart' && /あおい/.test(r.text[0]) && r.top === 2, JSON.stringify(r)); return r
+})
+// ---- 音（鳴らさずに呼ばれ方を見る）
+await t('おならの音は毎回ちがう（3種×15回で直前と同じ音0）・かき消し=こもる / 丸聞こえ=響く', async () => {
+  const r = await G(() => {
+    const Snd = fw.Snd; Snd.fartLog.length = 0; let same = 0
+    for (const k of ['suka', 'pu', 'bubo']) for (let i = 0; i < 15; i++) { const a = Snd.fart(k, 'plain'), b = Snd.fartLog.at(-2); if (b && b.kind === k && b.chops === a.chops && Math.abs(b.f0 - a.f0) / a.f0 < 0.06 && Math.abs(b.dur - a.dur) / a.dur < 0.12) same++ }
+    const S = fw.S; fw.dbg.seed(11); fw.startRun(); S.evs = [{ type: 'bell', src: -1, tw: 1, tp: 2, dur: 1.4 }]; S.cpuPlan = []; S.resPlan = []
+    S.t = 2.2; fw.doFart(2, 'bubo'); const masked = Snd.fartLog.at(-1).how
+    S.t = 5; S.cd = 0; fw.doFart(2, 'bubo'); const loud = Snd.fartLog.at(-1).how
+    S.evs = [{ type: 'phone', src: 4, tw: 6, tp: 6, dur: 1.6 }]; S.t = 6.2; fw.doFart(2, 'pu'); const half = Snd.fartLog.at(-1).how
+    return { same, masked, loud, half, echo: Snd.played.echo || 0 }
+  })
+  expect(r.same === 0 && r.masked === 'masked' && r.loud === 'busted' && r.half === 'half' && r.echo >= 1, JSON.stringify(r)); return r
+})
+await t('BGM: 静か→会議→判定で切り替わる・匂いがたまると崩れる', async () => {
+  const r = await G(() => {
+    const S = fw.S, Snd = fw.Snd, seq = []
+    fw.dbg.seed(5); fw.startRun(); seq.push(Snd.want)
+    while (S.ph === 'quiet') { if (S.t > 2 && !S.farts.some(f => f.who === 2)) fw.pressFart('suka'); fw.dbg.step(1) } seq.push(Snd.want)
+    while (S.ph !== 'choose') fw.dbg.step(1); fw.choose('feign'); while (S.ph !== 'verdict') fw.dbg.step(1); seq.push(Snd.want)
+    Snd.track = 'night'; Snd.sour = 0; Snd.bgmLog.length = 0; for (let i = 0; i < 64; i++) Snd.p_night(i, 0)
+    const calm = Snd.bgmLog.slice(); Snd.sour = 1; Snd.detMax = 0; Snd.bgmLog.length = 0; for (let i = 0; i < 64; i++) Snd.p_night(i, 0)
+    const sour = Snd.bgmLog.slice(), det = Snd.detMax; Snd.sour = 0
+    return { seq, calm: [...new Set(calm)], sour: [...new Set(sour)], det: Math.round(det) }
+  })
+  expect(r.seq[0] === 'night' && r.seq[1] === 'meet' && ['happy', 'sad', 'night'].includes(r.seq[2]) && r.calm.join() === 'calm' && r.sour.join() === 'sour' && r.det >= 15, JSON.stringify(r)); return r
 })
 await t('通しでエラーなし', async () => { expect(p.errs.length === 0, p.errs.join('|')) })
 
