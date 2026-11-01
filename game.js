@@ -567,9 +567,10 @@ function choose(kind, target) {
     ok = !loud; E[YOU] *= ok ? 0.6 : 1.05
   } else if (kind === 'blame') {
     line = line.replace('{T}', nameOf(target)); S.blameT = target
-    const ratio = E[target] / Math.max(Ep, 0.1), cpuF = S.farts.some(f => f.who === target)
-    ok = R() < clamp(0.3 + ratio * 0.45 + (cpuF ? 0.25 : 0) - sh * 0.15, 0.1, 0.92)
-    if (ok) { E[target] += Ep * 0.7 + 0.5; E[YOU] *= 0.5 } else E[YOU] = E[YOU] * 1.3 + 0.3
+    // 隣の人は匂いが回るので言い分が通りやすい（本人: なすりつけがなかなか成功しない）
+    const ratio = E[target] / Math.max(Ep, 0.1), cpuF = S.farts.some(f => f.who === target), nb = Math.abs(target - YOU) === 1
+    ok = R() < clamp(0.36 + ratio * 0.5 + (cpuF ? 0.4 : 0) + (nb ? 0.12 : 0) - sh * 0.12, 0.2, 0.95)
+    if (ok) { E[target] += Ep * 0.95 + 0.8; E[YOU] *= 0.4 } else E[YOU] = E[YOU] * 1.15 + 0.2
   } else if (kind === 'rage') {
     const F = S.sniffer, fF = S.farts.some(f => f.who === F)
     ok = R() < clamp(0.45 - sh * 0.2 + (fF ? 0.4 : 0), 0.1, 0.9)
@@ -622,6 +623,10 @@ function verdict() {
     bank = S.pend + Math.max(30, Math.round(S.pend * 0.5)); S.stats.framed++; S.outcome = 'framed'; head = T.framed; sub = '+' + bank; cls += ' good'
     Snd.laugh(5); Snd.sfx('fanfare'); for (const n of PPL) if (n.i !== c) n.smile = 1; PPL[c].shock = 1
     S.capKind = 'framed'; S.wantCap = true; S.capPref = 'framed'
+  } else if (S.choice === 'blame' && c === S.blameT) {
+    // ほんまにこいてた人になすりつけた: 成功として見せる
+    bank = S.pend + 20; S.stats.framed++; S.outcome = 'blamed'; head = T.blamed; sub = '+' + bank; cls += ' good'
+    Snd.laugh(3); Snd.sfx('fanfare'); PPL[c].shock = 1
   } else {
     bank = S.pend; S.outcome = 'correct'; head = nameOf(c) + T.correct; sub = bank ? '+' + bank : ''; cls += ' safe'; Snd.sfx('stamp')
   }
