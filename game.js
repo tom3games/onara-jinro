@@ -867,9 +867,10 @@ function applyLang() {
 const FX = []
 function toScreen(p) { _w.copy(p).project(camera); return { x: (_w.x + 1) / 2 * innerWidth, y: (1 - _w.y) / 2 * innerHeight } }
 function fx(text, cls, o = {}) {
-  const el = document.createElement('div'); el.className = cls; el.textContent = text; $('#fx').appendChild(el)
+  const f0 = null, el = document.createElement('div'); el.className = cls; el.textContent = text; $('#fx').appendChild(el)
   const f = { el, t: 0, life: o.life || 1.6, follow: o.follow ?? -1, at: o.at || null, x: o.x, y: o.y, size: o.size, rot: o.rot || 0, cls }
   if (cls.startsWith('sb')) { const sb = FX.filter(x => x.cls.startsWith('sb')); if (sb.length >= 2) killFx(sb[0]) }
+  if (cls.startsWith('ono')) { const on = FX.filter(x => x !== f0 && x.cls.startsWith('ono')); if (on.length >= 2) killFx(on[0]) }   // 擬音も同時に2つまで
   if (o.size) el.style.fontSize = o.size + 'px'
   FX.push(f); return f
 }
@@ -972,7 +973,8 @@ function doFart(i, id) {
     S.pend += f.pts; S.stats.farts++; S.cd = D.cd
     Snd.fart(id, how)
     const word = { suka: S.lang === 'ja' ? 'すぅ…' : 'pssst...', pu: S.lang === 'ja' ? 'ぷっ' : 'pfft', bubo: S.lang === 'ja' ? 'ブボボボッ！！' : 'BRAAAP!!' }[id]
-    ono(word, bp.clone().add(new THREE.Vector3(0, 0.5, 0)), audible > 0.2 ? 'ono red' : mask > 0 ? 'ono hid' : 'ono green', id === 'bubo' ? 40 : 28)
+    // かき消せた時は「かき消した！」だけ（鐘などの擬音と合わせて文字を2つまでにする）
+    if (!(mask > 0.5 && id !== 'suka')) ono(word, bp.clone().add(new THREE.Vector3(0, 0.5, 0)), audible > 0.2 ? 'ono red' : mask > 0 ? 'ono hid' : 'ono green', id === 'bubo' ? 40 : 28)
     if (mask > 0.5 && id !== 'suka') ono(S.lang === 'ja' ? 'かき消した！' : 'Covered!', bp.clone().add(new THREE.Vector3(0, 0.95, 0)), 'ono yel', 22, 1.1)
     if (id === 'bubo') shake = 0.35
     store.set('fw.played', '1')
