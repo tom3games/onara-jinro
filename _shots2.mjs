@@ -1,4 +1,5 @@
 // 新要素の撮影（猫・うちわ・座り直しと本当のおなら・判定・年越し）。node _shots2.mjs [w] [h]
+import './mute-auto.mjs'  // テスト中は絶対に音を出さない（playwright を無音に差し替え）
 import { chromium } from 'playwright'
 import { MUTE_LAUNCH, muteContext } from './mute.mjs'
 import { spawn } from 'node:child_process'

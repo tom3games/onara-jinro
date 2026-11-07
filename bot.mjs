@@ -1,4 +1,5 @@
 // 自動プレイで点数とラウンド数の分布を見る。node bot.mjs [games]
+import './mute-auto.mjs'  // テスト中は絶対に音を出さない（playwright を無音に差し替え）
 import { chromium } from 'playwright'
 import { MUTE_LAUNCH, muteContext } from './mute.mjs'
 import { spawn } from 'node:child_process'
