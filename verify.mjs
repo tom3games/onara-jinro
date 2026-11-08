@@ -40,7 +40,12 @@ const overflow = p => p.evaluate(() => {
   return { sw: document.documentElement.scrollWidth, W, bad: bad.slice(0, 5) }
 })
 // 一画面に収まる（縦スクロール不要・ボタンが画面内）
-const fit = q => q.evaluate(() => {
+// 出てくる途中（.choose の up は 0.25 秒で 30px 下から上がる）を測らない。重い時は 450ms 待っても動き出していないことがあり、
+// 全サイズで「選ぶ」のボタンが 30px はみ出して見えていた（2026-11-08。画面そのものは収まっている）。終わりのある動きが済んでから測る
+const fit = q => q.evaluate(async () => {
+  const anims = document.getAnimations().filter(a => a.playState === 'running' && isFinite(a.effect?.getComputedTiming?.().endTime))
+  await Promise.race([Promise.all(anims.map(a => a.finished.catch(() => {}))), new Promise(r => setTimeout(r, 3000))])
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
   const H = innerHeight, de = document.documentElement, over = []
   if (de.scrollHeight > H + 1) over.push('page:' + de.scrollHeight)
   for (const el of document.querySelectorAll('main:not([hidden]) button,main:not([hidden]) canvas')) { if (!el.offsetParent) continue; const r = el.getBoundingClientRect(); if (r.bottom > H + 1 || r.top < -1) over.push((el.id || el.className) + ':' + Math.round(r.top) + '-' + Math.round(r.bottom)) }
