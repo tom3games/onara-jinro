@@ -24,7 +24,7 @@ for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, {
   await p.waitForTimeout(400)
   out.push(`${name}: play=${r}`)
   await p.screenshot({ path: `shots/live-${name}.png` })
-  const og = await p.evaluate(async () => { const r = await fetch(document.querySelector('meta[property="og:image"]').content); const b = await r.arrayBuffer(); return r.status + ' ' + r.headers.get('content-type') + ' ' + b.byteLength + 'B' })
+  const og = process.env.GHPAGES ? await (async () => { const u = await p.evaluate(() => document.querySelector('meta[property="og:image"]').content); const r = await fetch(u); return r.status + ' ' + r.headers.get('content-type') + ' ' + (await r.arrayBuffer()).byteLength + 'B (node)' })() : await p.evaluate(async () => { const r = await fetch(document.querySelector('meta[property="og:image"]').content); const b = await r.arrayBuffer(); return r.status + ' ' + r.headers.get('content-type') + ' ' + b.byteLength + 'B' })
   out.push(`${name}: og=${og} errors=${errs.length ? errs.join(' | ') : 'none'}`)
   await b.close()
 }
