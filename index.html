@@ -34,7 +34,7 @@ button{font-family:inherit;color:inherit;font-size:inherit;-webkit-user-select:n
 #gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
 #fx{position:fixed;inset:0;z-index:6;pointer-events:none;overflow:hidden}
 #vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(120% 90% at 50% 42%,transparent 55%,rgba(20,8,16,.6) 100%)}
-.view{position:fixed;inset:0;z-index:10;height:100svh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:max(58px,calc(env(safe-area-inset-top) + 52px)) 16px max(18px,calc(env(safe-area-inset-bottom) + 12px))}
+.view{position:fixed;inset:0;z-index:10;height:100svh;overflow:hidden;display:flex;flex-direction:column;align-items:center;padding:max(58px,calc(env(safe-area-inset-top) + 52px)) 16px max(18px,calc(calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)) + 12px))}
 .btn{position:relative;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:900;font-size:18px;border:3px solid var(--ink);border-radius:16px;min-height:54px;padding:0 20px;cursor:pointer;width:100%;background:var(--paper);color:var(--ink);box-shadow:0 5px 0 var(--ink);transition:transform .06s,box-shadow .06s}
 .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
 .btn svg{width:24px;height:24px;flex:none;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
@@ -78,7 +78,7 @@ button{font-family:inherit;color:inherit;font-size:inherit;-webkit-user-select:n
 #hLives{display:flex;gap:3px}
 #hLives i{width:18px;height:16px;display:block;background:var(--red);clip-path:path('M9 16 1.5 8.5A4.3 4.3 0 0 1 9 3a4.3 4.3 0 0 1 7.5 5.5z');transition:background .2s}
 #hLives i.off{background:#5a5262}
-.hudBot{position:absolute;left:0;right:0;bottom:0;padding:0 max(12px,env(safe-area-inset-right)) max(12px,calc(env(safe-area-inset-bottom) + 8px)) max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
+.hudBot{position:absolute;left:0;right:0;bottom:0;padding:0 max(12px,env(safe-area-inset-right)) max(12px,calc(calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)) + 8px)) max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none}
 .farts{display:flex;gap:8px;width:100%;max-width:480px;pointer-events:auto}
 .fb{position:relative;flex:1;min-width:0;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:var(--paper);color:var(--ink);border:3px solid var(--ink);border-radius:16px;box-shadow:0 5px 0 var(--ink);font-weight:900;cursor:pointer;padding:4px 2px;overflow:hidden;--cd:0}
 .fb#f_suka{background:#d9efb8}.fb#f_bubo{flex:1.15;background:#ffb35c}.fb.fan{flex:1.45;background:#cfe6ff;padding:0;cursor:default}
@@ -110,7 +110,7 @@ button{font-family:inherit;color:inherit;font-size:inherit;-webkit-user-select:n
 .pick button{min-height:54px;border:3px solid var(--ink);border-radius:14px;background:var(--yel);color:var(--ink);box-shadow:0 4px 0 var(--ink);font-weight:900;font-size:17px;cursor:pointer}
 .pick #bPickX{grid-column:1/-1;background:rgba(27,22,32,.75);color:var(--paper);border-color:rgba(255,248,236,.5);box-shadow:none;min-height:40px;font-size:14px}
 @keyframes up{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
-.hint{position:absolute;left:50%;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 112px);transform:translateX(-50%);max-width:calc(100% - 24px);background:var(--yel);color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:7px 14px;font-weight:900;font-size:15px;text-align:center;pointer-events:none;white-space:nowrap;animation:bob .6s ease-in-out infinite alternate}
+.hint{position:absolute;left:50%;bottom:calc(max(12px,calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px))) + 112px);transform:translateX(-50%);max-width:calc(100% - 24px);background:var(--yel);color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:7px 14px;font-weight:900;font-size:15px;text-align:center;pointer-events:none;white-space:nowrap;animation:bob .6s ease-in-out infinite alternate}
 @keyframes bob{to{transform:translate(-50%,-6px)}}
 
 /* 3D の上の文字 */
@@ -151,10 +151,10 @@ html[lang=ja] .rank{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
   .btn{min-height:48px;font-size:16px}.btn.red{min-height:54px;font-size:19px}
   .fb{min-height:70px}.cb{min-height:56px}.cb .cn{font-size:15px}
   #rPhoto{max-width:200px}.resCard{gap:4px;padding:10px 12px}.rNum{font-size:46px}
-  .hint{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 96px)}
+  .hint{bottom:calc(max(12px,calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px))) + 96px)}
 }
 @media (max-height:560px) and (orientation:landscape){
-  .view{padding-top:max(10px,env(safe-area-inset-top));padding-bottom:max(10px,env(safe-area-inset-bottom))}
+  .view{padding-top:max(10px,env(safe-area-inset-top));padding-bottom:max(10px,calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)))}
   #vTitle{flex-direction:row;align-items:flex-end;justify-content:space-between;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
   #vTitle .logo{width:44%;text-align:left;align-self:flex-start;margin-top:4px}
   .logo .main{font-size:min(8vw,15vh,64px)}
@@ -164,7 +164,7 @@ html[lang=ja] .rank{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
   .hudBot{align-items:flex-end}
   .farts{max-width:340px}.fb{min-height:60px}.fb svg{width:22px;height:22px}
   .choose,.pick{max-width:400px}.cb{min-height:48px;padding:3px}.cb .cs{display:none}.pick button{min-height:42px}
-  .hint{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 80px);left:auto;right:16px;transform:none;animation:none}
+  .hint{bottom:calc(max(10px,calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px))) + 80px);left:auto;right:16px;transform:none;animation:none}
   .res{width:min(760px,100%);flex-direction:row;align-items:stretch;gap:12px}
   .resCard{flex:1.2;padding:8px 12px;gap:4px}
   #rPhoto{max-width:150px}.rNum{font-size:42px}
@@ -269,6 +269,6 @@ html[lang=ja] .rank{font-family:"Zen Maru Gothic",var(--disp);font-weight:900}
 </script>
 <script src="data.js?v=5"></script>
 <script type="module" src="game.js?v=6"></script>
-<script src="support.js?v=4" data-ja="みかん" data-en="a tangerine"></script>
+<script src="support.js?v=5" data-ja="みかん" data-en="a tangerine"></script>
 </body>
 </html>
