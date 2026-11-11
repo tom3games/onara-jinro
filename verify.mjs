@@ -249,23 +249,78 @@ await t('猫が鳴くと家族が猫を見る・鳴き声が鳴る', async () =>
   const r = await G(() => { const S = fw.S; fw.dbg.seed(11); fw.startRun(); S.evs = [{ type: 'cat', src: -1, tw: 0.2, tp: 1, dur: 0.35, walk: 5 }]; S.cpuPlan = []; S.resPlan = []; const m0 = fw.Snd.played.meow || 0; while (S.t < 1.1) fw.dbg.step(1); return { gz: [0, 1, 3, 4].map(c => S.gz[c]), cat: fw.CAT.on, meow: (fw.Snd.played.meow || 0) - m0 } })
   expect(r.gz.every(g => g === -2) && r.cat && r.meow === 1, JSON.stringify(r)); return r
 })
-await t('うちわ: 出した直後・匂わない時・見られてる時はバレ、良い使い方は疑われない。2回で終わり', async () => {
+await t('あおぐ: 自分の匂いが選んだ隣へ流れる（広がる前ほど多く）。見られてる時・2回目・匂わない時は怪しまれる', async () => {
   const r = await G(() => {
     const S = fw.S, k = []
-    const fresh = () => { fw.dbg.seed(11); fw.startRun(); S.evs = []; S.cpuPlan = []; S.resPlan = []; S.gz = [-1, -1, -1, -1, -1]; S.t = 5 }
-    fresh(); S.smell = 2; S.farts = [{ who: 2, id: 'suka', t: 3, wit: [], gl: [] }]; fw.pressFan(); k.push(S.fans[0].kind)
-    fresh(); S.smell = 0.1; fw.pressFan(); k.push(S.fans[0].kind)
-    fresh(); S.smell = 2; S.gz[1] = 2; fw.pressFan(); k.push(S.fans[0].kind)
-    fresh(); S.smell = 2; S.farts = [{ who: 3, id: 'suka', t: 1, wit: [], gl: [] }]; const sm0 = S.smell; fw.pressFan(); k.push(S.fans[0].kind, +(S.smell / sm0).toFixed(2))
-    S.fanCd = 0; const two = fw.pressFan(); S.fanCd = 0; const three = fw.pressFan()
-    return { k, two, three, left: S.fanLeft }
+    const fresh = () => { fw.dbg.seed(11); fw.startRun(); S.evs = []; S.cpuPlan = []; S.resPlan = []; S.gz = [-1, -1, -1, -1, -1]; S.gzT = [99, 99, 99, 99, 99]; S.t = 5 }
+    const mine = (t, smellAt) => [{ who: 2, id: 'suka', t, smellAt, wit: [], gl: [] }]
+    fresh(); S.farts = mine(4.5, 7); fw.pressFan(1); k.push([S.fans[0].kind, S.farts[0].pushTo, S.farts[0].pushK])
+    fresh(); S.farts = mine(1, 3.5); fw.pressFan(-1); k.push([S.fans[0].kind, S.farts[0].pushTo, S.farts[0].pushK])
+    fresh(); S.farts = mine(4.5, 7); S.gz[4] = 2; fw.pressFan(1); k.push([S.fans[0].kind, S.farts[0].pushSeen.join()])
+    fresh(); S.farts = mine(4.5, 7); fw.pressFan(1); S.fanCd = 0; fw.pressFan(-1); k.push([S.fans[1].kind, S.farts[0].pushTo])
+    fresh(); S.smell = 0.1; fw.pressFan(1); k.push([S.fans[0].kind])
+    fresh(); S.smell = 2; S.farts = [{ who: 3, id: 'suka', t: 1, smellAt: 3.5, wit: [], gl: [] }]; fw.pressFan(1); k.push([S.fans[0].kind, S.farts[0].pushTo === undefined])
+    fresh(); const cd1 = fw.pressFan(1), cd2 = fw.pressFan(1)
+    return { k, cd: [cd1, cd2] }
   })
-  expect(JSON.stringify(r.k) === JSON.stringify(['fanFart', 'fanCold', 'fanSeen', 'ok', 0.3]) && r.two === true && r.three === false && r.left === 0, JSON.stringify(r)); return r
+  const want = [['ok', 3, 0.75], ['ok', 1, 0.4], ['fanSeen', '4'], ['fanMany', 3], ['fanCold'], ['air', true]]
+  expect(JSON.stringify(r.k) === JSON.stringify(want) && r.cd[0] === true && r.cd[1] === false, JSON.stringify(r)); return r
 })
-await t('うちわの悪い使い方は会議の発言と疑いに出る', async () => {
-  await setup({ farts: [{ who: 2, id: 'suka', t: 3 }], fans: [{ t: 4, kind: 'fanFart', seenBy: [] }] })
+// 同じ状況（誰も見ていない時のすかし）で、あおがない／左／右を会議と投票まで回す
+const fanCase = (fan, ch) => p.evaluate(([fan, ch]) => {
+  const { S, dbg } = fw
+  dbg.seed(11); fw.startRun(); S.cpuPlan = []; S.resPlan = []; S.evs = []; S.gz = [-1, -1, -1, -1, -1]; S.gzT = [99, 99, 99, 99, 99]
+  S.t = 2; fw.doFart(2, 'suka'); S.t = 3; if (fan) fw.pressFan(fan)
+  S.t = 99; dbg.step(1); while (S.ph === 'meet') dbg.step(1)
+  fw.choose(ch, ch === 'blame' ? 2 + fan : undefined); const ok = S.chOk
+  while (S.ph !== 'verdict' && S.mode === 'play') dbg.step(1)
+  return { ok, said: S.said.map(x => x.type + '>' + x.about), votes: S.votes.map(v => v.j), outcome: S.outcome, score: S.score, lives: S.lives }
+}, [fan, ch])
+await t('あおぐと効く: すかしは あおがない=バレる / あおいでしらばっくれる=セーフ / あおいだ相手になすりつけ=濡れ衣', async () => {
+  const none = await fanCase(0, 'feign'), fR = await fanCase(1, 'feign'), fL = await fanCase(-1, 'feign'), bR = await fanCase(1, 'blame'), bL = await fanCase(-1, 'blame')
+  expect(none.outcome === 'caught' && none.lives === 2 && fR.outcome === 'tier0' && fL.outcome === 'tier0' && bR.outcome === 'framed' && bL.outcome === 'framed' && bR.said.includes('smell>3') && bL.said.includes('smell>1') && bR.score > none.score, JSON.stringify({ none, fR, fL, bR, bL }))
+  return { none: none.outcome, fanFeign: fR.outcome + '/' + fL.outcome, fanBlame: bR.outcome + ' ' + bR.score + '点' }
+})
+await t('あおぎすぎ・見られてあおぐのは会議で言われる', async () => {
+  await setup({ farts: [{ who: 2, id: 'suka', t: 3 }], fans: [{ t: 4, kind: 'fanMany', seenBy: [] }, { t: 5, kind: 'fanSeen', seenBy: [4] }] })
   const r = await G(() => ({ said: fw.S.said.map(x => x.type), text: fw.S.meetQ.slice(1).map(q => q.text), top: fw.S.E.indexOf(Math.max(...fw.S.E)) }))
-  expect(r.said[0] === 'fanFart' && /あおい/.test(r.text[0]) && r.top === 2, JSON.stringify(r)); return r
+  expect(r.said.some(x => /^fan/.test(x)) && r.text.some(x => /あお/.test(x)) && r.top === 2, JSON.stringify(r)); return r
+})
+await t('あおぐと画面で分かる: もくもくが隣へ飛ぶ・その人の上に〜〜・鼻をつまんで「くさっ」・よそ見の家族がそっちを見る', async () => {
+  const r = await G(() => {
+    const { S, dbg } = fw
+    dbg.seed(11); fw.startRun(); S.cpuPlan = []; S.resPlan = []; S.evs = []; S.gz = [-1, -1, -1, -1, -1]; S.gzT = [99, 99, 99, 99, 99]
+    S.t = 2; fw.doFart(2, 'suka'); dbg.step(20)
+    fw.pressFan(1); dbg.step(3)
+    const flying = fw.moyaP.filter(p => p.path && p.path.b.distanceTo(fw.headPos(3)) < 0.6).length, hang = S.hang && S.hang.who
+    dbg.step(50)
+    const bub = [...document.querySelectorAll('#fx .bub, #fx [class*=bub]')].map(e => e.textContent).join('|')
+    return { flying, hang, pinch: fw.PPL[3].pinch > 0, gz: [0, 1, 4].map(c => S.gz[c]), lines: fw.slinesCount(), bub }
+  })
+  expect(r.flying >= 6 && r.hang === 3 && r.pinch && r.gz.every(g => g === 3) && r.lines >= 3, JSON.stringify(r)); return r
+})
+await t('あおぐボタンは本物の指で左右が押し分けられる（流せる匂いがある時は揺れて知らせる）', async () => {
+  await G(() => { const { S, dbg } = fw; dbg.seed(11); fw.startRun(); S.cpuPlan = []; S.resPlan = []; S.evs = []; S.gz = [-1, -1, -1, -1, -1]; S.gzT = [99, 99, 99, 99, 99]; S.t = 2; fw.doFart(2, 'suka'); S.cd = 0; dbg.step(2) })
+  const ready = await G(() => document.querySelector('#f_fan').classList.contains('ready'))
+  const box = await p.locator('#f_fanR').boundingBox(); await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  const r1 = await G(() => { fw.dbg.step(1); return { to: fw.S.fans.map(f => f.to), ready: document.querySelector('#f_fan').classList.contains('ready') } })
+  await G(() => { fw.S.fanCd = 0; fw.dbg.step(1) })
+  const bl = await p.locator('#f_fanL').boundingBox(); await p.mouse.click(bl.x + bl.width / 2, bl.y + bl.height / 2)
+  const r2 = await G(() => fw.S.fans.map(f => f.to))
+  expect(ready && JSON.stringify(r1.to) === '[3]' && !r1.ready && JSON.stringify(r2) === '[3,1]' && box.width >= 40 && bl.width >= 40, JSON.stringify({ ready, r1, r2, w: [box.width, bl.width] })); return { halfW: Math.round(box.width) }
+})
+await t('ページを離れると音を止め、戻っても画面に触るまで鳴らさない', async () => {
+  const r = await G(async () => {
+    const Snd = fw.Snd; Snd.init(); await new Promise(r => setTimeout(r, 50))
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange'))
+    await new Promise(r => setTimeout(r, 80)); const a = { away: Snd.away, st: Snd.ctx && Snd.ctx.state }
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange'))
+    await new Promise(r => setTimeout(r, 80)); const b = { away: Snd.away, st: Snd.ctx && Snd.ctx.state }
+    dispatchEvent(new Event('pagehide')); const c = Snd.away
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); const d = Snd.away
+    return { a, b, c, d }
+  })
+  expect(r.a.away && r.a.st === 'suspended' && r.b.away && r.c && !r.d, JSON.stringify(r)); return r
 })
 // ---- 音（鳴らさずに呼ばれ方を見る）
 await t('おならの音は毎回ちがう（3種×15回で直前と同じ音0）・かき消し=こもる / 丸聞こえ=響く', async () => {

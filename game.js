@@ -36,7 +36,7 @@ const Snd = {
   ctx: null, muted: store.get('fw.mute') === '1', next: 0, step: 0, track: null, want: null, switchAt: 0, played: {}, fartLog: [], sour: 0, bgmLog: [], detMax: 0,
   TEMPO: { title: 84, night: 72, meet: 112, happy: 132, sad: 66, ny: 144 },
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return }
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !this.away) this.ctx.resume(); return }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return
     try {
       const c = this.ctx = new AC()
@@ -64,6 +64,9 @@ const Snd = {
       if (this.want) { const w = this.want; this.want = null; this.setTrack(w) }
     } catch (e) { this.ctx = null }
   },
+  // ページを離れる・裏に回ると止める。戻っても勝手に鳴らさず、次に画面へ触れた時に鳴らし直す（ひな形 sfx.js と同じ）
+  sleep() { this.away = true; if (this.ctx && this.ctx.state === 'running') this.ctx.suspend() },
+  wake() { this.away = false; if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume() },
   setMute(m) { this.muted = m; store.set('fw.mute', m ? '1' : '0'); if (this.master) this.master.gain.value = m ? 0 : 0.8 },
   now() { return this.ctx ? this.ctx.currentTime : 0 },
   mtof: m => 440 * Math.pow(2, (m - 69) / 12),
@@ -760,7 +763,7 @@ const MOYA_N = 64
 const moya = new THREE.InstancedMesh(G.plane, new THREE.MeshBasicMaterial({ map: moyaTex, transparent: true, opacity: 0.9, depthWrite: false, alphaTest: 0.04 }), MOYA_N)
 moya.count = 0; moya.frustumCulled = false; moya.renderOrder = 3; scene.add(moya)
 for (let i = 0; i < MOYA_N; i++) moya.setColorAt(i, new THREE.Color(0xffffff))
-const LINE_N = 8
+const LINE_N = 11
 const slines = new THREE.InstancedMesh(G.plane, new THREE.MeshBasicMaterial({ map: stinkTex, transparent: true, depthWrite: false, alphaTest: 0.05 }), LINE_N)
 slines.count = 0; slines.frustumCulled = false; slines.renderOrder = 3; scene.add(slines)
 const moyaP = [], drifts = [], TINT = [0xffffff, 0xe6f7c8, 0xd4ecaa, 0xf2ffd8]
@@ -780,8 +783,28 @@ function scatterMoya() {
   for (const p of moyaP) { if (p.path) { p.path = null; p.v = new THREE.Vector3() } const d = p.p.clone().sub(_q.set(0, 0.6, -0.4)).setY(0).normalize(); p.v.copy(d.multiplyScalar(1.5 + VR())).setY(0.3); p.life = Math.min(p.life, p.t + 0.7); p.g = 1.2 }
   for (const d of drifts) d.n = 99
 }
+// あおいだ: あなたのまわりの匂いが隣の人へ流れていき、しばらくその人のまわりに漂う
+function pushMoya(to, mine) {
+  const me = buttPos(YOU).add(new THREE.Vector3(0, 0.1, 0.3)), dst = headPos(to).add(new THREE.Vector3(to < YOU ? 0.18 : -0.18, -0.32, 0.3))
+  for (const p of moyaP) if (!p.amb && p.p.distanceTo(me) < 0.9) { p.path = { a: p.p.clone(), b: dst.clone().add(new THREE.Vector3((VR() - 0.5) * 0.3, VR() * 0.2, (VR() - 0.5) * 0.2)) }; p.t = 0; p.dur = 0.75; p.life = 1.6 + VR() * 0.5; p.g = 0.3 }
+  for (let k = 0; k < 8; k++) moyaAdd({ path: { a: me.clone().add(_q.set(0, 0.35 + VR() * 0.2, 0)), b: dst.clone().add(new THREE.Vector3((VR() - 0.5) * 0.35, VR() * 0.25, 0)) }, p: me.clone(), v: new THREE.Vector3(), s: 0.14 + VR() * 0.05, g: 0.2, life: 1.2 + VR() * 0.3, dur: 0.55 + k * 0.06 })
+  // まだ広がっていない匂いは、流した先から広がる
+  for (const d of drifts) if (d.from === YOU) { d.from = to; d.at = Math.max(d.at, S.time + 0.9) }
+  const amt = mine.reduce((a, f) => a + FT[f.id].smell * f.pushK, 0)
+  S.hang = { who: to, until: S.time + D.fan.hang * clamp(amt + 0.4, 0.6, 1.2), next: 0 }
+  S.pushes.push({ to, at: S.t + 0.7 })
+}
 function updateMoya(dt) {
   const play = S.mode === 'play'
+  // 流された匂い: その人のまわりに湧き続ける（誰が臭く見えるかを画面に残す）
+  const hg = S.hang
+  if (hg && (!play || S.ph !== 'quiet' || S.time > hg.until)) S.hang = null
+  else if (hg && S.time >= hg.next) {
+    hg.next = S.time + 0.24
+    const b = headPos(hg.who)
+    const sd = VR() < 0.5 ? -1 : 1
+    moyaAdd({ p: b.add(new THREE.Vector3(sd * (0.2 + VR() * 0.12), -0.42 + VR() * 0.18, 0.3)), v: new THREE.Vector3((VR() - 0.5) * 0.1, 0.18 + VR() * 0.1, 0), s: 0.09 + VR() * 0.04, g: 0.45, life: 1.3 + VR() * 0.4 })
+  }
   // 両隣へ流れる匂い
   for (let k = drifts.length - 1; k >= 0; k--) {
     const d = drifts[k]; if (!play) { drifts.splice(k, 1); continue }
@@ -818,8 +841,14 @@ function updateMoya(dt) {
   moya.count = n; moya.instanceMatrix.needsUpdate = true; if (moya.instanceColor) moya.instanceColor.needsUpdate = true
   // 〜〜の線は「ざわ…」の間だけ
   let ln = 0
-  if (play && S.zawa && S.ph === 'quiet') for (let k = 0; k < LINE_N; k++) {
-    const u = (S.time * 0.35 + k * 0.37) % 1, a = k / LINE_N * Math.PI * 2 + S.time * 0.2, pop = Math.sin(u * Math.PI)
+  // 匂いを流された人の頭の上に〜〜（疑いのしるし）
+  if (play && S.hang && S.ph === 'quiet') for (let k = 0; k < 3; k++) {
+    const u = (S.time * 0.8 + k * 0.33) % 1, pop = Math.sin(u * Math.PI)
+    _q.copy(headPos(S.hang.who)).add(new THREE.Vector3((k - 1) * 0.13, 0.36 + u * 0.2, 0))
+    sc.set(0.09 * pop, 0.18 * pop, 1); m4.compose(_q, camera.quaternion, sc); slines.setMatrixAt(ln++, m4)
+  }
+  if (play && S.zawa && S.ph === 'quiet') for (let k = 0; k < 8; k++) {
+    const u = (S.time * 0.35 + k * 0.37) % 1, a = k / 8 * Math.PI * 2 + S.time * 0.2, pop = Math.sin(u * Math.PI)
     _q.set(Math.cos(a) * 1.2, 0.6 + u * 0.9, -0.4 + Math.sin(a) * 0.8)
     sc.set(0.11 * pop, 0.22 * pop, 1); m4.compose(_q, camera.quaternion, sc); slines.setMatrixAt(ln++, m4)
   }
@@ -935,12 +964,12 @@ function startRun() {
   Snd.init(); Snd.sfx('tap')
   S.seed = (S.fixedSeed ?? ((Date.now() & 0xffffff) || 1)); S.rand = mulberry(S.seed)
   S.mode = 'play'; S.round = 0; S.lives = 3; S.cleared = false; S.score = 0; S.pend = 0; S.smell = 0; S.result = null; S.photo = false; S.capPref = ''; S.wantCap = false
-  S.fanLeft = D.fan.uses; S.carryNext = 0; S.prevCulprit = -1
+  S.carryNext = 0; S.prevCulprit = -1
   S.confN = 0; S.stats = { farts: 0, framed: 0, caught: 0, best: 0, perfect: 0, deduce: 0, bluff: 0, unan: 0, frameVotes: 0, fans: 0 }; S.tut = !store.get('fw.played')
   show('vPlay'); clearFx(); nextRound()
 }
 function nextRound() {
-  S.round++; S.ph = 'quiet'; S.t = 0; S.pend = 0; S.farts = []; S.lifts = []; S.fans = []; S.cd = 0; S.fanCd = 0; S.zawa = false; S.smell *= 0.45; S.E = null; S.V = null; S.votes = []; S.culprit = -1; S.unan = false; S.cnt = null; S.outcome = ''; S.tier = -1; S.meetQ = []; S.clues = []; S.said = []
+  S.round++; S.ph = 'quiet'; S.t = 0; S.pend = 0; S.farts = []; S.lifts = []; S.fans = []; S.pushes = []; S.fanN = 0; S.cd = 0; S.fanCd = 0; S.zawa = false; S.smell *= 0.45; S.E = null; S.V = null; S.votes = []; S.culprit = -1; S.unan = false; S.cnt = null; S.outcome = ''; S.tier = -1; S.meetQ = []; S.clues = []; S.said = []
   S.carry = new Array(NSEAT).fill(0); S.carry[YOU] = S.carryNext || 0; S.carryNext = 0
   for (const n of PPL) { n.point = -1; n.smile = 0; n.shock = 0 }
   S.gz = PPL.map(() => -1); S.gzT = PPL.map(() => 0.5 + R() * 2); S.gzSince = PPL.map(() => 0)
@@ -989,21 +1018,25 @@ function doFart(i, id) {
 }
 // ただの座り直し（煙も表情も変わらない。見ていた家族は少し怪しむ）
 function doReseat(i) { reseat(i); S.lifts.push({ who: i, t: S.t, real: false, seen: CPUS.filter(c => c !== i && S.gz[c] === i) }) }
-// うちわ: 匂いを散らす。出した直後・匂わない時・見られている時は怪しまれる
-function pressFan() {
+// うちわ: 自分の匂いを左右どちらかの隣へ流す（流された人が疑われる）。
+// 見られてる時・同じ回の2回目から・匂いが無い時は、あなたが怪しまれる
+function pressFan(dir) {
   Snd.init()
-  if (S.mode !== 'play' || S.ph !== 'quiet' || !(S.fanLeft > 0) || S.fanCd > 0) return false
-  S.fanLeft--; S.fanCd = D.fan.cd; S.stats.fans++
-  const recent = S.farts.some(f => f.who === YOU && S.t - f.t <= D.fan.recent)
-  const cold = S.smell < D.fan.cold
+  if (S.mode !== 'play' || S.ph !== 'quiet' || S.fanCd > 0) return false
+  const to = YOU + (dir < 0 ? -1 : 1)
+  S.fanCd = D.fan.cd; S.stats.fans++; S.fanN = (S.fanN || 0) + 1
   const seenBy = watchers(YOU)
-  const kind = recent ? 'fanFart' : cold ? 'fanCold' : seenBy.length ? 'fanSeen' : 'ok'
-  S.fans.push({ t: S.t, kind, seenBy })
-  S.smell *= D.fan.scatter; for (const f of S.farts) f.fanned = true
-  if (S.smell < 1.7) S.zawa = false
-  PPL[YOU].fanT = 1.2; scatterMoya(); Snd.sfx('fan')
-  if (kind !== 'ok') {
-    const sp = seenBy[0] ?? 1
+  const mine = S.farts.filter(f => f.who === YOU && f.pushTo === undefined)
+  const many = S.fanN >= 2, cold = !mine.length && S.smell < D.fan.cold
+  const kind = seenBy.length ? 'fanSeen' : many ? 'fanMany' : cold ? 'fanCold' : mine.length ? 'ok' : 'air'
+  // 見ていた人はだまされない。広がる前にあおぐほど多く流れる
+  for (const f of mine) { f.pushTo = to; f.pushK = S.t < f.smellAt ? D.fan.move : D.fan.late; f.pushSeen = seenBy.slice() }
+  S.fans.push({ t: S.t, kind, seenBy, to, moved: mine.length })
+  const n = PPL[YOU]; n.fanT = 1.2; n.fanDir = dir < 0 ? -1 : 1; Snd.sfx('fan')
+  ono(TT().fanWhoosh, buttPos(YOU).add(_q.set(dir < 0 ? -0.3 : 0.3, 0.2, 0.25)), 'ono dim', 18, 0.8)
+  if (mine.length) pushMoya(to, mine)
+  if (kind !== 'ok' && kind !== 'air') {
+    const sp = seenBy[0] ?? (to === 1 ? 3 : 1)
     say(sp, TT()[kind], 1.8); PPL[sp].shock = 1; setGz(sp, YOU); S.gzT[sp] = 1.5
   }
   return true
@@ -1031,12 +1064,20 @@ function updateQuiet(dt) {
     }
     if (e.type === 'cat' && e.love === 1 && S.t >= e.tp + 0.45) { e.love = 2; say(CPUS[S.round % 4], T.catLove[S.round % T.catLove.length], 1.3) }
   }
+  // 流された匂いが届く: 鼻をつまんで「くさっ」、よそ見していた家族がそっちを見る
+  for (const h of S.pushes) if (!h.done && S.t >= h.at) {
+    h.done = true; const j = h.to, P = PPL[j]
+    P.sniffT = 1.4; P.shock = 1; P.pinch = 2.2; Snd.sfx('sniff')
+    say(j, T.fanHit[(S.round + j) % T.fanHit.length], 1.6)
+    for (const c of CPUS) if (c !== j && S.gz[c] !== YOU) { setGz(c, j); S.gzT[c] = 1.4 }
+  }
   for (const p of S.cpuPlan) if (!p.done && S.t >= p.t) { p.done = true; doFart(p.who, p.id) }
   for (const p of S.resPlan) if (!p.done && S.t >= p.t) { p.done = true; doReseat(p.who) }
   // 匂いは遅れて広がる
   for (const f of S.farts) if (!f.sm && S.t >= f.smellAt) {
-    f.sm = 1; S.smell += FT[f.id].smell * (f.fanned ? D.fan.scatter : 1)
-    const near = [f.who - 1, f.who + 1].filter(j => j >= 0 && j < NSEAT && j !== YOU)
+    f.sm = 1; S.smell += FT[f.id].smell
+    const from = f.pushTo !== undefined && f.pushK >= D.fan.move ? f.pushTo : f.who
+    const near = [from - 1, from + 1].filter(j => j >= 0 && j < NSEAT && j !== YOU)
     for (const j of near) { PPL[j].sniffT = 1.2; Snd.sfx('sniff') }
   }
   if (!S.zawa && S.smell > 1.7) { S.zawa = true; Snd.sfx('zawa'); banner(T.smellUp, 'banner zawa', 1.6); for (const c of CPUS) S.gzT[c] = Math.min(S.gzT[c], 0.3 + R() * 0.5) }
@@ -1056,6 +1097,7 @@ function updateQuiet(dt) {
     const nb = S.evs.find(e => e.type === 'bell' && e.tp > S.t && e.tp - S.t < 1.6)
     if (nb) showHint(T.hintBell, 'bell')
     else if (watchers(YOU).length) showHint(T.hintLook, 'look')
+    else if (S.farts.some(f => f.who === YOU && f.pushTo === undefined && S.t - f.t > 0.4) && !S.fans.length) showHint(T.hintFan, 'fan')
     else if (S.t < 3) showHint(T.hintFirst, 'first')
     else hideHint()
   }
@@ -1072,9 +1114,16 @@ function hideHint() { $('#hint').hidden = true }
 function evidence() {
   const sh = sharp(), V = {}, clues = [], smE = new Array(NSEAT).fill(0)
   for (const c of CPUS) V[c] = new Array(NSEAT).fill(0)
-  const src = new Array(NSEAT).fill(0)
+  // 匂いの出どころは人によって違って見える（あおいで流した分は、見ていた人と流された本人以外には流した先から匂う）
+  const srcC = {}; for (const c of CPUS) srcC[c] = new Array(NSEAT).fill(0)
   for (const f of S.farts) {
-    src[f.who] += FT[f.id].smell * (f.fanned ? D.fan.scatter + 0.05 : 1)
+    const sm = FT[f.id].smell, pushed = f.pushTo !== undefined
+    for (const c of CPUS) {
+      if (pushed && !f.pushSeen.includes(c)) { srcC[c][f.who] += sm * (1 - f.pushK); srcC[c][f.pushTo] += sm * f.pushK }
+      else srcC[c][f.who] += sm
+    }
+    // 流された本人は、風が来た方を少し疑う
+    if (pushed && f.pushTo !== YOU && CPUS.includes(f.pushTo)) { V[f.pushTo][f.who] += D.fan.back * sm }
     if (f.audible > 0.15) for (const c of CPUS) if (c !== f.who) {
       const w = 2.5 * f.audible * PER(c).hear; V[c][f.who] += w
       clues.push({ type: f.mask > 0 ? 'soundMix' : 'sound', c, about: f.who, w: w + 0.2, ev: f.ev })
@@ -1084,10 +1133,9 @@ function evidence() {
   }
   // 匂い: 隣の人の鼻は向きが分かる。離れた人は出どころと両隣の区別がつきにくい
   for (let i = 0; i < NSEAT; i++) {
-    if (!src[i]) continue
-    const v = Math.pow(src[i], 1.3)
     for (const c of CPUS) {
-      if (c === i) continue
+      if (c === i || !srcC[c][i]) continue
+      const v = Math.pow(srcC[c][i], 1.3)
       const nose = PER(c).nose, near = Math.abs(c - i) === 1
       const a = (near ? 1.1 : 0.6) * nose * v; V[c][i] += a; smE[i] += a / 4
       for (const j of [i - 1, i + 1]) if (j >= 0 && j < NSEAT && j !== c) { const b = (near ? 0.25 : 0.6 - 0.2 * sh) * nose * v; V[c][j] += b; smE[j] += b / 4 }
@@ -1099,9 +1147,9 @@ function evidence() {
   for (const l of S.lifts) if (l.who !== YOU) for (const c of l.seen) { V[c][l.who] += 0.6; clues.push({ type: 'lift', c, about: l.who, w: 0.6 }) }
   // うちわ
   for (const fn of S.fans) {
-    if (fn.kind === 'fanFart') for (const c of CPUS) { V[c][YOU] += 2.2; clues.push({ type: 'fanFart', c, about: YOU, w: 2.0 }) }
-    if (fn.kind === 'fanCold') for (const c of CPUS) { V[c][YOU] += 0.8; clues.push({ type: 'fanCold', c, about: YOU, w: 0.75 }) }
-    for (const c of fn.seenBy) { V[c][YOU] += 1.2; if (fn.kind !== 'fanFart') clues.push({ type: 'fanSeen', c, about: YOU, w: 1.1 }) }
+    if (fn.kind === 'fanMany') for (const c of CPUS) { V[c][YOU] += D.fan.many; clues.push({ type: 'fanMany', c, about: YOU, w: 0.95 }) }
+    if (fn.kind === 'fanCold') for (const c of CPUS) { V[c][YOU] += D.fan.coldW; clues.push({ type: 'fanCold', c, about: YOU, w: 0.75 }) }
+    for (const c of fn.seenBy) { V[c][YOU] += D.fan.seen; clues.push({ type: 'fanSeen', c, about: YOU, w: 1.1 }) }
   }
   // 性格
   for (const c of CPUS) {
@@ -1130,7 +1178,7 @@ function startMeeting() {
   const ev = evidence(); S.V = ev.V; S.smE = ev.smE
   // 会議の発言: 根拠の強い順に2つ（同じ相手・同じ種類は重ねない）
   const said = []
-  for (const cl of ev.clues) { if (said.length >= 2) break; if (said.some(s => s.about === cl.about && (s.type === cl.type || s.c === cl.c))) continue; said.push(cl) }
+  for (const cl of ev.clues) { if (said.length >= 2) break; if (said.length && cl.w < 0.25) break; if (said.some(s => s.about === cl.about && (s.type === cl.type || s.c === cl.c))) continue; said.push(cl) }
   S.said = said
   // 流されやすい人は、聞いた発言を信じる
   for (const s of said) for (const c of CPUS) if (c !== s.c && c !== s.about) S.V[c][s.about] += PER(c).follow * 0.5 * s.w
@@ -1162,7 +1210,7 @@ function againstYou() {
   const mine = S.farts.filter(f => f.who === YOU)
   const sound = mine.reduce((m, f) => Math.max(m, f.audible > 0.15 ? 2.5 * f.audible : 0), 0)
   const saw = mine.reduce((s, f) => s + 1.5 * f.wit.length + 0.5 * f.gl.length, 0)
-  const fan = S.fans.reduce((s, f) => s + (f.kind === 'fanFart' ? 2.2 : f.kind === 'fanCold' ? 0.8 : f.kind === 'fanSeen' ? 1.2 : 0), 0)
+  const fan = S.fans.reduce((s, f) => s + (f.kind === 'fanMany' ? D.fan.many : f.kind === 'fanCold' ? D.fan.coldW : f.kind === 'fanSeen' ? D.fan.seen : 0), 0)
   const smell = S.smE ? S.smE[YOU] : 0
   const parts = { sound, saw, fan, smell }
   return { ...parts, total: sound + saw + fan + smell + S.carry[YOU], top: Object.entries(parts).sort((a, b) => b[1] - a[1])[0][0] }
@@ -1390,7 +1438,11 @@ function updateHud(force) {
 function updateFartBtns() {
   const k = S.cd / D.cd
   for (const id of FIDS) { const b = $('#f_' + id); b.style.setProperty('--cd', k.toFixed(3)); b.disabled = !(S.ph === 'quiet' && S.cd <= 0) }
-  const fb = $('#f_fan'); fb.disabled = !(S.ph === 'quiet' && S.fanLeft > 0 && S.fanCd <= 0); fb.querySelectorAll('.dots i').forEach((el, k) => el.classList.toggle('off', k >= S.fanLeft))
+  const on = S.ph === 'quiet' && S.fanCd <= 0, box = $('#f_fan')
+  for (const b of box.querySelectorAll('button')) b.disabled = !on
+  box.classList.toggle('off', !on); box.style.setProperty('--cd', (S.fanCd / D.fan.cd).toFixed(3))
+  // 流せる匂いがある時だけ、うちわが「今や」と揺れる
+  box.classList.toggle('ready', on && S.farts.some(f => f.who === YOU && f.pushTo === undefined) && !(S.fanN > 0))
 }
 
 // ---------- 見た目の更新
@@ -1403,6 +1455,7 @@ function updatePeople(dt) {
     if (n.i === YOU) {
       if (S.mode === 'play' && (S.ph === 'meet' || S.ph === 'vote')) { const sus = topSuspect(YOU); lookAtPoint(n, headPos(sus >= 0 ? sus : 1)) }
       else if (n.point >= 0) lookAtPoint(n, headPos(n.point))
+      else if (n.fanT > 0) { n.tYaw = (n.fanDir || 0) * 0.6; n.tPitch = 0.05 }
       else { n.tYaw = Math.sin(tm * 0.4) * 0.25; n.tPitch = 0.05 }
     } else if (n.point >= 0) lookAtPoint(n, headPos(n.point))
     else if (g === -2 && S.mode === 'play') lookAtPoint(n, catPos().add(_q.set(0, 0.15, 0)))
@@ -1426,13 +1479,16 @@ function updatePeople(dt) {
     n.reseat = Math.max(0, n.reseat - dt); const rk = Math.sin(clamp(n.reseat / 1.3, 0, 1) * Math.PI)
     n.arms[0].rotation.x = lerp(-0.9, -1.75, rk) + (n.smile > 0.3 ? Math.sin(tm * 16) * 0.35 * n.smile : 0)
     n.arms[0].rotation.z = lerp(-0.15, 0.45, rk)
-    if (n.fanT > 0) { n.fanT -= dt; const fk = Math.min(1, n.fanT * 3); n.arms[0].rotation.x = lerp(-0.9, -1.5, fk); n.arms[0].rotation.z = -0.3 + Math.sin(tm * 26) * 0.5 * fk; uchiwa.visible = true } else if (n.i === YOU) uchiwa.visible = false
+    if (n.fanT > 0) { n.fanT -= dt; const fk = Math.min(1, n.fanT * 3); // うちわを流す側へ突き出してパタパタ
+      n.arms[0].rotation.x = lerp(-0.9, -0.45, fk); n.arms[0].rotation.z = lerp(-0.15, 1.15 * (n.fanDir || 1), fk) + Math.sin(tm * 26) * 0.35 * fk; n.arms[0].rotation.y = 0; uchiwa.visible = true } else if (n.i === YOU) { uchiwa.visible = false; n.arms[0].rotation.y = 0 }
     // 指さし（右腕を伸ばして体ごと乗り出す。ぐいっと突く）
     if (n.point >= 0) n.pointK = Math.min(1, n.pointK + dt * 6); else n.pointK = Math.max(0, n.pointK - dt * 4)
     const jab = n.pointK > 0.9 ? Math.sin(tm * 10) * 0.06 : 0
     const arm = n.arms[1]
     arm.rotation.x = lerp(n.key === 'itoko' ? -1.1 : -0.9, -1.6 + jab, n.pointK); arm.rotation.y = lerp(0, n.yaw * 0.9, n.pointK); arm.rotation.z = lerp(0.15, 0.05, n.pointK)
     n.finger.scale.setScalar(0.4 + 0.6 * n.pointK)
+    // 鼻をつまむ（匂いを流された人）
+    if (n.pinch > 0) { n.pinch -= dt; const pk = clamp(Math.min(n.pinch, 2.2 - n.pinch) * 5, 0, 1); arm.rotation.x = lerp(arm.rotation.x, -2.75, pk); arm.rotation.y = lerp(arm.rotation.y, 0, pk); arm.rotation.z = lerp(arm.rotation.z, -0.45, pk); n.finger.scale.setScalar(lerp(n.finger.scale.x, 1, pk)); n.tPitch -= 0.15 * pk }
     n.b.rotation.x = 0.16 * n.pointK + 0.2 * rk - n.hop * 0.1; n.b.rotation.z += 0.12 * rk
     if (n.phone) n.phone.visible = n.pointK < 0.5
     // 表情の値
@@ -1554,7 +1610,8 @@ function syncMute() { $('#icOn').hidden = Snd.muted; $('#icOff').hidden = !Snd.m
 function toTitle() { Snd.sfx('tap'); S.mode = 'title'; S.ph = ''; clearFx(); hideHint(); S.gz = PPL.map(() => -1); S.smell = 0; show('vTitle'); Snd.setTrack('title') }
 function pressFart(id) { Snd.init(); if (S.mode !== 'play' || S.ph !== 'quiet' || S.cd > 0) return false; doFart(YOU, id); return true }
 for (const id of FIDS) $('#f_' + id).addEventListener('pointerdown', e => { e.preventDefault(); pressFart(id) })
-$('#f_fan').addEventListener('pointerdown', e => { e.preventDefault(); pressFan() })
+$('#f_fanL').addEventListener('pointerdown', e => { e.preventDefault(); pressFan(-1) })
+$('#f_fanR').addEventListener('pointerdown', e => { e.preventDefault(); pressFan(1) })
 for (const k of ['feign', 'blame', 'rage', 'confess']) $('#c_' + k).addEventListener('click', () => choose(k))
 document.querySelectorAll('#pickRow [data-i]').forEach(b => b.addEventListener('click', () => choose('blame', +b.dataset.i)))
 $('#bPickX').addEventListener('click', () => { if (S.ph === 'pick') { S.ph = 'choose'; setPanel('choose') } })
@@ -1569,11 +1626,20 @@ $('#bLang').addEventListener('click', () => { S.lang = S.lang === 'ja' ? 'en' : 
 $('#bMute').addEventListener('click', () => { Snd.init(); Snd.setMute(!Snd.muted); syncMute() })
 addEventListener('keydown', e => {
   if (e.repeat) return
-  if ((e.key === '4' || e.key.toLowerCase() === 'f') && S.ph === 'quiet') { pressFan(); return }
+  const fd = { arrowleft: -1, q: -1, '4': -1, arrowright: 1, e: 1, f: 1, '5': 1 }[e.key.toLowerCase()]
+  if (fd && S.ph === 'quiet') { pressFan(fd); return }
   const k = { '1': 'suka', '2': 'pu', '3': 'bubo', a: 'suka', s: 'pu', d: 'bubo' }[e.key.toLowerCase()]
   if (k && S.ph === 'quiet') pressFart(k)
 })
 document.addEventListener('pointerdown', () => Snd.init(), { once: true })
+;(() => {
+  const hide = () => Snd.sleep()
+  addEventListener('pagehide', hide)
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') hide() })
+  document.addEventListener('freeze', hide)
+  const touch = () => { if (Snd.away && document.visibilityState === 'visible') Snd.wake() }
+  for (const n of ['pointerdown', 'touchend', 'keydown']) addEventListener(n, touch, true)
+})()
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight, false); frameCamera() })
 renderer.setSize(innerWidth, innerHeight, false); frameCamera()
 applyLang(); syncMute(); show('vTitle'); Snd.setTrack('title')
@@ -1581,7 +1647,7 @@ requestAnimationFrame(loop)
 
 // ---------- 検証用の窓口
 window.fw = {
-  S, D, PPL, camera, renderer, pressFan, evidence, againstYou, argFor, voteOf, CAT, moya, drawCard, xPost, toResult, choose, pressFart, doFart, evidence, startRun, nextRound, Snd, rankOf,
+  S, D, PPL, camera, renderer, pressFan, moyaP, headPos, slinesCount: () => slines.count, evidence, againstYou, argFor, voteOf, CAT, moya, drawCard, xPost, toResult, choose, pressFart, doFart, evidence, startRun, nextRound, Snd, rankOf,
   dbg: {
     pause() { S.dbgPause = true }, resume() { S.dbgPause = false; last = performance.now() },
     step(n = 1) { for (let k = 0; k < n; k++) step() }, render, seed(s) { S.fixedSeed = s },

@@ -17,7 +17,7 @@ await p.evaluate(() => { const S = fw.S; S.evs = []; S.cpuPlan = [{ who: 1, id: 
 await shot('lift', { x: 0, y: 230, width: 330, height: 200 })
 await p.evaluate(() => { const S = fw.S; S.smell = 2.2; S.zawa = true; fw.dbg.step(60) })
 await shot('zawa')
-await p.evaluate(() => { const S = fw.S; S.gz = [-1, -1, -1, -1, -1]; S.gzT = [9, 9, 9, 9, 9]; fw.pressFan(); fw.dbg.step(12) })
+await p.evaluate(() => { const S = fw.S; S.gz = [-1, -1, -1, -1, -1]; S.gzT = [9, 9, 9, 9, 9]; fw.pressFan(1); fw.dbg.step(12) })
 await shot('fan', { x: 60, y: 230, width: 260, height: 200 })
 // 判定（あなたに2票: 怪しまれた）
 await p.evaluate(() => { const S = fw.S; S.farts.push({ who: 2, id: 'bubo', wit: [], gl: [], t: 1 }); S.pend = 100; S.choice = 'feign'; S.votes = [{ c: 0, j: 2 }, { c: 1, j: 3 }, { c: 3, j: 2 }, { c: 4, j: 3 }]; S.cnt = [0, 0, 2, 2, 0]; S.culprit = -1; S.ph = 'vote'; S.t = 9; fw.dbg.step(1); fw.dbg.step(50) })

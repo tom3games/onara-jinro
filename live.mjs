@@ -6,6 +6,8 @@ const URL0 = 'https://tom3games.github.io/onara-jinro/'
 const out = []
 for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, { isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
   const b = await bt.launch(name === 'chromium' ? MUTE_LAUNCH : {}), ctx = await b.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 }, ...opts }); await muteContext(ctx); const p = await ctx.newPage()
+  // GHPAGES=1: 横丁へ転送せずに github.io の中身そのものを見る（横丁のデプロイ前の確認用）
+  if (process.env.GHPAGES) await p.route(u => u.hostname === 'tom3games.github.io' && /onara-jinro\/(\?|$)/.test(u.pathname + u.search.slice(0, 1)), async r => { const res = await r.fetch(); r.fulfill({ response: res, body: (await res.text()).replace(/<script id="ghMove">[^<]*<\/script>/, '') }) })
   const errs = []
   p.on('pageerror', e => errs.push(e.message)); p.on('console', m => { if (m.type() === 'error') errs.push(m.text()) })
   p.on('requestfailed', r => errs.push('fail ' + r.url()))

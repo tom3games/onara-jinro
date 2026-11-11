@@ -108,14 +108,18 @@ Object.assign(window.FW, {
   tiers: [{ keep: 1, heart: 0 }, { keep: 0.8, heart: 0 }, { keep: 0.5, heart: 0 }, { keep: 0, heart: 1 }, { keep: 0, heart: 1, carry: 0.8 }],
   // 技術の点
   bonus: { perfect: 30, deduce: 30, bluff: 30 },
-  fan: { uses: 2, recent: 4, cold: 0.5, scatter: 0.3, cd: 1.2 },
+  // うちわ（2026-11-11 作り直し）: 自分の匂いを左右どちらかの隣へ流す。move=広がる前にあおいだ時に流れる割合 / late=広がった後 / back=流された本人があなたを疑う強さ
+  // 見られてる時(seen)・同じ回の2回目から(many)・自分の匂いが無く部屋も匂わない時(cold)は怪しまれる
+  fan: { cd: 1.2, move: 0.75, late: 0.4, back: 0.5, cold: 0.5, seen: 1.2, many: 1.0, coldW: 0.8, hang: 4.5 },
   cat: { win: 0.35, walk: 5.2 },
 })
 window.FW.mask.cat = { pu: 1, suka: 1, bubo: 0 }
 Object.assign(window.FW.T.ja, {
   f_fan: 'あおぐ',
   cat: 'にゃ', catLove: ['かわいい〜', 'おっ、タマや', 'にゃんこ〜'],
-  fanFart: 'あんたオナラしたやろ？', fanCold: 'こんな寒いのに？', fanSeen: '…なんで今あおいだん',
+  fanCold: 'こんな寒いのに？', fanSeen: '…なんで今あおいだん', fanMany: 'さっきから何あおいでんの',
+  fanHit: ['…ん？ くさっ', 'え、こっち臭ない？', 'なんか来た…'], fanWhoosh: 'パタパタ',
+  hintFan: 'あおぐ◀▶で匂いを隣へ流せ',
   // 会議の発言（証拠の種類ごと。{X}=疑う相手）
   L: {
     sound: ['今の音、{X}の方やったで', '{X}のとこから「ぷっ」て聞こえた'],
@@ -124,7 +128,7 @@ Object.assign(window.FW.T.ja, {
     glance: ['{X}、さっき目そらしたな', '{X}、なんかソワソワしてたな'],
     smell: ['{X}の方から匂いするで', 'こたつの{X}側からや', '{X}のあたり、空気が重い'],
     lift: ['{X}、さっき座り直してたな', '{X}、モゾモゾしてたで'],
-    fanFart: ['なんで急にあおいだん、{X}', '出してすぐあおいだやろ、{X}'],
+    fanMany: ['{X}、さっきからあおぎすぎや', '{X}、なんでずっとあおいでんの'],
     fanCold: ['{X}、こんな寒いのにあおいでたな'],
     fanSeen: ['{X}があおいでるの見たで'],
     grudge: ['また{X}ちゃうん？'],
@@ -142,12 +146,14 @@ Object.assign(window.FW.T.ja, {
   perfect: '完全犯罪', deduce: '名推理', bluff: 'ハッタリ',
   stPerfect: '完全犯罪', stDeduce: '名推理', stBluff: 'ハッタリ', stUnan: '満場一致',
   share2: 'おなら人狼で{P}点、{R}回戦まで生き延びた【{K}】完全犯罪{C}回・名推理{D}回 #おなら人狼 #バカゲー',
-  howFan: '<b>うちわ</b>は2回だけ。匂いを散らせるが、出した直後・匂わない時・見られてる時は怪しまれる',
+  howFan: '<b>あおぐ◀▶</b>と自分の匂いが隣の人へ流れて、その人が疑われる。見られてる時・あおぎすぎは逆にバレる',
 })
 Object.assign(window.FW.T.en, {
   f_fan: 'Fan',
   cat: 'meow', catLove: ['Aww, kitty!', 'Hey, Tama!', 'So cute~'],
-  fanFart: 'You just farted, huh?', fanCold: 'Fanning? In this cold?', fanSeen: '...Why fan right now?',
+  fanCold: 'Fanning? In this cold?', fanSeen: '...Why fan right now?', fanMany: 'Why do you keep fanning?',
+  fanHit: ['...Huh? Ugh!', 'Wait, does it stink here?', 'Something just hit me...'], fanWhoosh: 'flap flap',
+  hintFan: 'Fan ◀▶ to push the smell next door',
   L: {
     sound: ['That sound came from {X}!', 'I heard a "pfft" from {X}'],
     soundMix: ['Something was mixed into that bell...', 'That sneeze had a friend.', 'Something under that meow...'],
@@ -155,7 +161,7 @@ Object.assign(window.FW.T.en, {
     glance: ['{X}, you looked away just now.', '{X} is acting fidgety.'],
     smell: ["It's coming from {X}'s side.", "The {X} side of the kotatsu.", 'The air is heavy near {X}.'],
     lift: ['{X} was shifting around.', '{X} was squirming.'],
-    fanFart: ['{X}, why the sudden fanning?', '{X} fanned right after, huh?'],
+    fanMany: ['{X} keeps fanning and fanning.', '{X}, why all the fanning?'],
     fanCold: ['{X} was fanning in this cold.'],
     fanSeen: ['I saw {X} fanning.'],
     grudge: ['{X} again, right?'],
@@ -172,5 +178,5 @@ Object.assign(window.FW.T.en, {
   perfect: 'Perfect crime', deduce: 'Deduction', bluff: 'Bluff',
   stPerfect: 'Perfect', stDeduce: 'Deduced', stBluff: 'Bluffs', stUnan: 'Unanimous',
   share2: 'Scored {P} in FART WOLF, survived {R} rounds [{K}] perfect crimes {C}, deductions {D} #FartWolf #おなら人狼',
-  howFan: 'The <b>fan</b> works twice. Clears the smell, but fanning right after, with no smell, or while watched is suspicious',
+  howFan: '<b>Fan ◀▶</b> pushes your smell onto a neighbor, so they get the blame. Fanning while watched or too often gives you away',
 })
